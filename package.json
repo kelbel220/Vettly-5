@@ -1,0 +1,42 @@
+{
+  "name": "template-2",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "clean": "rimraf .next node_modules/.cache",
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "lint": "next lint",
+    "dev:clean": "powershell -ExecutionPolicy Bypass -File .\\start-dev.ps1"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^0.0.48",
+    "@ai-sdk/openai": "^0.0.54",
+    "@deepgram/sdk": "^3.6.0",
+    "ai": "^3.3.20",
+    "date-fns": "^3.6.0",
+    "firebase": "^10.13.0",
+    "framer-motion": "^11.18.2",
+    "lucide-react": "^0.436.0",
+    "next": "14.2.7",
+    "react": "^18",
+    "react-dom": "^18",
+    "react-markdown": "^9.0.1",
+    "replicate": "^0.32.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "cross-env": "^7.0.3",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.7",
+    "kill-port": "^2.0.1",
+    "nodemon": "^3.1.9",
+    "postcss": "^8",
+    "rimraf": "^6.0.1",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
+}
