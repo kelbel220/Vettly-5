@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+.font-playfair {
+  font-family: 'Playfair Display', serif;
+}
+
+.font-space-grotesk {
+  font-family: 'Space Grotesk', sans-serif;
+}
+
 @layer base {
   body {
     @apply bg-[#000B2A] text-white antialiased;

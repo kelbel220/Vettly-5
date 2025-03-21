@@ -6,7 +6,7 @@ const tcpPortUsed = require('tcp-port-used');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = 'localhost';
-const port = 3000;
+const port = 3001;
 
 // Initialize Next.js
 const app = next({ dev, hostname, port });
@@ -42,7 +42,7 @@ async function checkAndKillPort() {
 
 async function startServer() {
   try {
-    // Check and kill any process using port 3000
+    // Check and kill any process using port 3001
     await checkAndKillPort();
 
     // Prepare Next.js
