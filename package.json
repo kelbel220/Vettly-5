@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "clean": "rimraf .next node_modules/.cache",
-    "dev": "next dev -p 3001",
+    "dev": "node server.js",
     "build": "next build",
-    "start": "next start -p 3001",
+    "start": "node server.js",
     "lint": "next lint",
     "dev:clean": "powershell -ExecutionPolicy Bypass -File .\\start-dev.ps1"
   },
@@ -26,7 +26,8 @@
     "react": "^18",
     "react-dom": "^18",
     "react-markdown": "^9.0.1",
-    "replicate": "^0.32.0"
+    "replicate": "^0.32.0",
+    "tcp-port-used": "^1.0.2"
   },
   "devDependencies": {
     "@types/node": "^20",

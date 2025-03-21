@@ -24,11 +24,11 @@ Write-Host "Cleaning up existing Node.js processes..." -ForegroundColor Yellow
 Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force
 Start-Sleep -Seconds 2
 
-# 2. Check and kill process using port 3000
-Write-Host "Checking port 3000..." -ForegroundColor Yellow
-if (Test-PortInUse 3000) {
-    Write-Host "Port 3000 is in use. Killing process..." -ForegroundColor Red
-    Stop-ProcessByPort 3000
+# 2. Check and kill process using port 3001
+Write-Host "Checking port 3001..." -ForegroundColor Yellow
+if (Test-PortInUse 3001) {
+    Write-Host "Port 3001 is in use. Killing process..." -ForegroundColor Red
+    Stop-ProcessByPort 3001
     Start-Sleep -Seconds 2
 }
 
@@ -56,7 +56,7 @@ if (-not (Test-Path "node_modules")) {
 
 # 7. Set environment variables
 $env:NODE_ENV = "development"
-$env:PORT = "3000"
+$env:PORT = "3001"
 $env:HOSTNAME = "localhost"
 
 # 8. Start the development server
