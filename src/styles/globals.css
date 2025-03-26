@@ -2,12 +2,66 @@
 @tailwind components;
 @tailwind utilities;
 
-.font-playfair {
-  font-family: 'Playfair Display', serif;
+:root {
+  --font-playfair: 'Playfair Display', serif;
+  --font-inter: 'Inter', sans-serif;
 }
 
-.font-space-grotesk {
-  font-family: 'Space Grotesk', sans-serif;
+.font-playfair {
+  font-family: var(--font-playfair);
+}
+
+.font-inter {
+  font-family: var(--font-inter);
+}
+
+.path-animation {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: dash 2s ease-in-out forwards;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 216, 241, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(52, 216, 241, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 216, 241, 0);
+  }
+}
+
+@keyframes pulse-scale {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.button-pulse {
+  animation: button-pulse 1.5s infinite;
+}
+
+@keyframes button-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 @layer base {
@@ -18,29 +72,29 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-dark text-white font-medium px-8 py-4 
+    @apply bg-dark text-white font-medium px-6 py-3 
            rounded-full transition-all duration-200
            hover:bg-dark/90 shadow-lg shadow-dark/20;
   }
 
   .btn-secondary {
-    @apply bg-white text-dark font-medium px-8 py-4 
+    @apply bg-white text-dark font-medium px-6 py-3 
            rounded-full transition-all duration-200
            hover:bg-white/90 shadow-lg shadow-white/20;
   }
 
   .card {
-    @apply bg-white/10 backdrop-blur-sm rounded-3xl p-8 
+    @apply bg-white/10 backdrop-blur-sm rounded-2xl p-6 
            border border-white/10 hover:border-white/20
-           transition-all duration-200;
+           transition-all duration-200 max-w-[800px] mx-auto;
   }
 
   .dashboard-sidebar {
-    @apply bg-white/70 backdrop-blur-sm;
+    @apply bg-white/70 backdrop-blur-sm w-[250px];
   }
 
   .dashboard-bottom {
-    @apply bg-white/70 backdrop-blur-sm;
+    @apply bg-white/70 backdrop-blur-sm h-[60px];
   }
 
   .gradient-text {
@@ -49,6 +103,11 @@
 
   .floating {
     animation: floating 3s ease-in-out infinite;
+  }
+
+  .pulse {
+    animation: pulse-scale 1.2s ease-in-out infinite;
+    transform-origin: center;
   }
 
   @keyframes floating {
