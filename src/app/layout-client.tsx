@@ -1,9 +1,8 @@
-import { metadata, viewport } from './metadata';
+'use client';
+
 import { playfair } from './fonts'
 import "./globals.css";
 import { Providers } from "./providers";
-
-export { metadata, viewport };
 
 export default function RootLayout({
   children,
