@@ -25,6 +25,7 @@
     "prop-types": "^15.8.1",
     "react": "^18",
     "react-dom": "^18",
+    "react-icons": "^5.5.0",
     "react-markdown": "^9.0.1",
     "replicate": "^0.32.0",
     "tcp-port-used": "^1.0.2"

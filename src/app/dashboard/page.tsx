@@ -5,6 +5,9 @@ import { OrbField } from '../components/gradients/OrbField';
 import { AnimatedText } from '../components/text/AnimatedText';
 import Image from 'next/image';
 import { inter } from '../fonts';
+import { useAuth } from '@/context/AuthContext';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase-init';
 
 // Add JSX type definitions
 declare global {
@@ -15,20 +18,85 @@ declare global {
   }
 }
 
+interface UserData {
+  firstName: string;
+  lastName: string;
+  profilePhotoUrl: string;
+}
+
 export default function Dashboard() {
   const [activeTab, setActiveTab] = useState('discover');
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [profileImage, setProfileImage] = useState('/placeholder-profile.jpg');
+  const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { currentUser } = useAuth();
 
   useEffect(() => {
-    setIsLoading(false);
-  }, []);
+    const fetchUserData = async () => {
+      if (currentUser) {
+        try {
+          const userRef = doc(db, 'users', currentUser.uid);
+          const userSnap = await getDoc(userRef);
+          
+          if (userSnap.exists()) {
+            const data = userSnap.data() as UserData;
+            console.log('User data:', data);
+            setUserData(data);
+            
+            // Try to get profile photo URL from user document first, then fall back to auth user photoURL
+            const photoUrl = data.profilePhotoUrl || currentUser.photoURL || '/placeholder-profile.jpg';
+            console.log('Using profile photo URL:', photoUrl);
+            setImageError(false);
+            setProfileImage(photoUrl);
+          } else {
+            console.log('No user document found');
+            if (currentUser.photoURL) {
+              console.log('Using auth user photoURL:', currentUser.photoURL);
+              setImageError(false);
+              setProfileImage(currentUser.photoURL);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          // Still try to use auth user photoURL if available
+          if (currentUser.photoURL) {
+            console.log('Using auth user photoURL after error:', currentUser.photoURL);
+            setImageError(false);
+            setProfileImage(currentUser.photoURL);
+          }
+        }
+      } else {
+        console.log('No current user');
+      }
+      setIsLoading(false);
+    };
+
+    fetchUserData();
+  }, [currentUser]);
+
+  useEffect(() => {
+    console.log('Profile image updated:', profileImage);
+    console.log('Image error state:', imageError);
+  }, [profileImage, imageError]);
+
+  const handleImageError = () => {
+    console.log('Error loading image:', profileImage);
+    setImageError(true);
+    setProfileImage('/placeholder-profile.jpg');
+  };
+
+  const handleImageLoad = () => {
+    console.log('Image loaded successfully:', profileImage);
+    setImageError(false);
+  };
 
   const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const imageUrl = URL.createObjectURL(file);
+      setImageError(false);
       setProfileImage(imageUrl);
     }
   };
@@ -80,26 +148,37 @@ export default function Dashboard() {
                   accept="image/*"
                   onChange={handleImageUpload}
                 />
-                <div className="absolute inset-0 rounded-full overflow-hidden">
+                <div className="absolute inset-0 rounded-full overflow-hidden border-2 border-white/30">
                   <div className="w-full h-full relative">
-                    <Image
-                      src={profileImage}
-                      alt="Profile"
-                      fill
-                      className="object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gray-100/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <div className="text-gray-600 text-sm font-medium flex items-center gap-2">
-                        <svg className="w-6 h-6" fill="#34D8F1" stroke="white" strokeWidth="1" viewBox="0 0 24 24">
-                          <path d="M4 16l4 4L19 7"></path>
+                    {!imageError && (
+                      <Image
+                        src={profileImage}
+                        alt={userData?.firstName ? `${userData.firstName}'s profile` : 'Profile'}
+                        fill
+                        sizes="(max-width: 768px) 256px, 288px"
+                        priority
+                        className="object-cover"
+                        onError={handleImageError}
+                        onLoad={handleImageLoad}
+                      />
+                    )}
+                    {imageError && (
+                      <div className="w-full h-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-gray-400 text-xs">No Image</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                      <div className="text-white text-sm font-medium flex items-center gap-2">
+                        <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
                         </svg>
-                        Upload Photo
+                        Change Photo
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-              <h1 className="text-6xl font-medium tracking-tight mb-4 text-white">Welcome back, Sarah</h1>
+              <h1 className="text-6xl font-medium tracking-tight mb-4 text-white">Welcome back, {userData?.firstName || 'User'}</h1>
               <div className={inter.className}>
                 <p className="text-3xl font-light text-[#34D8F1] tracking-wide">Matchmaking, Revolutionised</p>
                 <div className="space-y-3 mb-8">
