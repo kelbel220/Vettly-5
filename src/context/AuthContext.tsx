@@ -69,41 +69,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const signup = async (data: SignupData) => {
-    if (!auth) {
-      throw new Error('Firebase auth is not initialized');
-    }
-
     try {
-      const { email, password } = data;
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      // Create user profile in Firestore
-      await setDoc(doc(db, 'users', user.uid), {
-        ...data,
-        name: `${data.firstName} ${data.lastName}`,
+      // Create the user with email and password
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      
+      // Prepare user data for Firestore
+      const userData = {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        dob: data.dob,
+        sex: data.sex,
+        maritalStatus: data.maritalStatus,
+        hasChildren: data.hasChildren,
+        suburb: data.suburb,
+        state: data.state,
+        educationLevel: data.educationLevel,
+        incomeLevel: data.incomeLevel,
+        email: data.email,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
+        ...(data.hasChildren ? {
+          numberOfChildren: data.numberOfChildren || 0,
+          childrenAges: data.childrenAges || ''
+        } : {})
+      };
 
-      setCurrentUser(user);
+      // Save user data to Firestore
+      await setDoc(doc(db, 'users', userCredential.user.uid), userData);
     } catch (error: any) {
       console.error('Detailed signup error:', error);
-      if (error.code) {
-        switch (error.code) {
-          case 'auth/email-already-in-use':
-            throw new Error('Email is already registered');
-          case 'auth/invalid-email':
-            throw new Error('Invalid email address');
-          case 'auth/operation-not-allowed':
-            throw new Error('Email/password accounts are not enabled. Please contact support.');
-          case 'auth/weak-password':
-            throw new Error('Password is too weak. It should be at least 6 characters');
-          default:
-            throw new Error(`Authentication error: ${error.message}`);
-        }
+      if (error?.code === 'auth/email-already-in-use') {
+        throw new Error('Email is already registered');
+      } else if (error?.code === 'auth/invalid-email') {
+        throw new Error('Invalid email address');
+      } else if (error?.code === 'auth/weak-password') {
+        throw new Error('Password is too weak. It should be at least 6 characters');
+      } else {
+        throw new Error(`Authentication error: ${error?.message || 'Unknown error occurred'}`);
       }
-      throw error;
     }
   };
 

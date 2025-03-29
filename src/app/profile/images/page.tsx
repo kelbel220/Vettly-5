@@ -257,41 +257,28 @@ export default function ProfileImages() {
   };
 
   return (
-    <div className="relative min-h-screen bg-white flex items-start">
-      <OrbField />
-      {/* Purple orb */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[400px] rounded-full bg-gradient-to-br from-purple-500/30 to-purple-600/30 blur-3xl" />
-      
-      <div className="relative z-10 w-full py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-3xl mx-auto">
-          <div className="flex justify-center mb-8">
-            <Image
-              src="/vettly-logo.png"
-              alt="Vettly Logo"
-              width={180}
-              height={45}
-              className="h-auto w-auto"
-              priority
-            />
-          </div>
-
-          <div className="text-center mb-12">
-            <h2 className={`${playfair.className} text-4xl font-bold text-white mb-3`}>
-              Upload Your Photos
-            </h2>
-            <p className={`${inter.className} text-lg text-white/80`}>
-              Help others get to know you better with these 4 essential photos
-            </p>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-[#1a1a1a] via-[#2a2a2a] to-[#1a1a1a]">
+      <div className="absolute inset-0 bg-gradient-to-br from-[#34D8F1]/20 via-transparent to-[#9333EA]/20" />
+      <div className="absolute inset-0 -top-32">
+        <OrbField />
+      </div>
+      <div className="relative z-10 container mx-auto px-4 py-16">
+        <div className="max-w-4xl mx-auto">
+          <h1 className={`${playfair.className} text-4xl font-bold text-white text-center mb-2`}>
+            Upload Your Photos
+          </h1>
+          <p className={`${inter.className} text-lg text-white/80 text-center mb-12`}>
+            Help others get to know you better with some photos
+          </p>
 
           {error && (
-            <div className="mb-8 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-white">
-              {error}
+            <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+              <p className="text-red-500 text-center">{error}</p>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-8 mb-8">
-            <div className="grid grid-cols-1 gap-4 sm:gap-8 sm:grid-cols-2 max-w-[320px] sm:max-w-none mx-auto">
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {Object.entries(imageTypes).map(([key, info]) => {
                 const Icon = info.icon;
                 return (

@@ -7,6 +7,10 @@ module.exports = {
   ],
   theme: {
     extend: {
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+        'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+      },
       keyframes: {
         'subtle-pulse': {
           '0%, 100%': { transform: 'scale(1)' },
@@ -14,7 +18,7 @@ module.exports = {
         }
       },
       animation: {
-        'subtle-pulse': 'subtle-pulse 2s ease-in-out infinite',
+        'subtle-pulse': 'subtle-pulse 4s ease-in-out infinite',
       },
     },
   },
