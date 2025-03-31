@@ -239,13 +239,13 @@ export default function Dashboard() {
                       <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-xl text-white">Your Progress</h3>
-                          <span className="text-purple-400 text-sm">3 of 5 Steps Complete</span>
+                          <span className="text-purple-400 text-sm">5 of 5 Steps Complete</span>
                         </div>
                         {/* Progress Bar */}
                         <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
                           <div 
-                            className="absolute left-0 top-0 h-full bg-gradient-to-r from-purple-300 to-purple-600"
-                            style={{ width: '60%' }}
+                            className="absolute left-0 top-0 h-full !bg-gradient-to-r !from-[#D8B4FE] !via-[#7E22CE] !to-[#4C1D95]"
+                            style={{ width: '100%' }}
                           />
                         </div>
                       </div>
@@ -301,7 +301,7 @@ export default function Dashboard() {
                         <div className="space-y-1">
                           {/* Profile Created */}
                           <div className="group relative grid grid-cols-[2rem_1fr_auto] items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300">
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400/60 to-purple-600/60 flex items-center justify-center mt-1">
+                            <div className="w-6 h-6 rounded-full bg-[#A855F7] flex items-center justify-center mt-1">
                               <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
                                 <path fillRule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z" clipRule="evenodd" />
                               </svg>
@@ -326,7 +326,7 @@ export default function Dashboard() {
 
                           {/* Photos Uploaded */}
                           <div className="group relative grid grid-cols-[2rem_1fr_auto] items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300">
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400/60 to-purple-600/60 flex items-center justify-center mt-1">
+                            <div className="w-6 h-6 rounded-full bg-[#A855F7] flex items-center justify-center mt-1">
                               <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
                                 <path fillRule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z" clipRule="evenodd" />
                               </svg>
@@ -351,7 +351,7 @@ export default function Dashboard() {
 
                           {/* Questionnaire */}
                           <div className="group relative grid grid-cols-[2rem_1fr_auto] items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300">
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400/60 to-purple-600/60 flex items-center justify-center mt-1">
+                            <div className="w-6 h-6 rounded-full bg-[#A855F7] flex items-center justify-center mt-1">
                               <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
                                 <path fillRule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z" clipRule="evenodd" />
                               </svg>
@@ -433,7 +433,7 @@ export default function Dashboard() {
                             <div className="flex items-center gap-3">
                               <div className="p-2 bg-white/10 rounded-lg">
                                 <svg className="w-5 h-5" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="1.5" strokeOpacity="0.7" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0121 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                                 </svg>
                               </div>
                               <h3 className="text-xl text-white">Tips & Advice</h3>
@@ -448,7 +448,7 @@ export default function Dashboard() {
                             <div className="text-center py-4 px-6">
                               <div className="w-10 h-10 mx-auto mb-3 rounded-full bg-white/5 flex items-center justify-center">
                                 <svg className="w-5 h-5 text-purple-600" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="1.5" strokeOpacity="0.7" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0121 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                                 </svg>
                               </div>
                               <h4 className="text-lg font-medium text-purple-400 mb-1">No Tips</h4>
