@@ -368,9 +368,9 @@ export default function SignupPage() {
                         onChange={handleChange}
                         className={selectClasses}
                       >
-                        <option value="" className="bg-blue-400/80 text-white">Select sex</option>
-                        <option value="male" className="bg-blue-400/80 text-white">Male</option>
-                        <option value="female" className="bg-blue-400/80 text-white">Female</option>
+                        <option value="" className="bg-[#3B00CC] text-white">Select Sex</option>
+                        <option value="male" className="bg-[#3B00CC] text-white">Male</option>
+                        <option value="female" className="bg-[#3B00CC] text-white">Female</option>
                       </select>
                       <div className={selectIconClasses}>▼</div>
                     </div>
@@ -385,9 +385,9 @@ export default function SignupPage() {
                         onChange={handleChange}
                         className={selectClasses}
                       >
-                        <option value="" className="bg-blue-400/80 text-white">Select marital status</option>
+                        <option value="" className="bg-[#3B00CC] text-white">Select Marital Status</option>
                         {maritalStatusOptions.map(status => (
-                          <option key={status} value={status} className="bg-blue-400/80 text-white">{status}</option>
+                          <option key={status} value={status} className="bg-[#3B00CC] text-white">{status}</option>
                         ))}
                       </select>
                       <div className={selectIconClasses}>▼</div>
@@ -473,8 +473,9 @@ export default function SignupPage() {
                         onChange={handleChange}
                         className={selectClasses}
                       >
+                        <option value="" className="bg-[#3B00CC] text-white">Select State</option>
                         {australianStates.map(state => (
-                          <option key={state} value={state} className="bg-blue-400/80 text-white">{state}</option>
+                          <option key={state} value={state} className="bg-[#3B00CC] text-white">{state}</option>
                         ))}
                       </select>
                       <div className={selectIconClasses}>▼</div>
@@ -490,8 +491,9 @@ export default function SignupPage() {
                         onChange={handleChange}
                         className={selectClasses}
                       >
+                        <option value="" className="bg-[#3B00CC] text-white">Select Education Level</option>
                         {educationLevels.map(level => (
-                          <option key={level} value={level} className="bg-blue-400/80 text-white">{level}</option>
+                          <option key={level} value={level} className="bg-[#3B00CC] text-white">{level}</option>
                         ))}
                       </select>
                       <div className={selectIconClasses}>▼</div>
@@ -507,8 +509,9 @@ export default function SignupPage() {
                         onChange={handleChange}
                         className={selectClasses}
                       >
+                        <option value="" className="bg-[#3B00CC] text-white">Select Income Level</option>
                         {incomeLevels.map(level => (
-                          <option key={level} value={level} className="bg-blue-400/80 text-white">{level}</option>
+                          <option key={level} value={level} className="bg-[#3B00CC] text-white">{level}</option>
                         ))}
                       </select>
                       <div className={selectIconClasses}>▼</div>
