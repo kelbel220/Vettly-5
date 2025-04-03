@@ -63,4 +63,4 @@ export const AnimatedText: React.FC<AnimatedTextProps> = ({
       </motion.div>
     </motion.div>
   );
-}; 
+};

@@ -252,7 +252,7 @@ export default function Questionnaire() {
                   className={`w-48 whitespace-nowrap px-4 py-2 rounded-full backdrop-blur-sm transition-all duration-200 text-center ${inter.className} ${
                     currentAnswer === option
                       ? 'bg-[#73FFF6] text-purple-900 border border-[#73FFF6]'
-                      : 'bg-purple-500/30 text-white border border-white/50 hover:bg-purple-500/40'
+                      : 'bg-white/10 text-white border border-white/30 hover:bg-white/20'
                   }`}
                 >
                   {option}

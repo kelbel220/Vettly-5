@@ -51,4 +51,4 @@ export const GradientOrb: React.FC<GradientOrbProps> = ({
       }}
     />
   );
-}; 
+};

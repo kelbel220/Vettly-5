@@ -35,4 +35,4 @@ export const TypewriterText = ({ text, className = "", delay = 0 }: TypewriterTe
       {displayText}
     </div>
   );
-}; 
+};
