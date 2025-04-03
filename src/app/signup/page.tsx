@@ -160,23 +160,40 @@ export default function SignupPage() {
   const labelClasses = "block text-sm font-medium text-white/80 mb-1 ml-4";
 
   return (
-    <div className={`min-h-screen relative overflow-hidden flex flex-col items-center justify-center bg-gradient-to-br from-white via-blue-400 to-white ${inter.className}`}>
+    <div className={`min-h-screen relative overflow-hidden flex flex-col items-center justify-start pt-20 bg-gradient-to-br from-white via-blue-400 to-white ${inter.className}`}>
       {/* Background Effects */}
       <div className="absolute inset-0">
         <OrbField />
       </div>
 
       {/* Logo */}
-      <div className="relative z-10 w-full flex justify-center px-6 mb-8">
-        <div className="w-[160px] sm:w-[200px]">
-          <Image
-            src="/vettly-logo.png"
-            alt="Vettly Logo"
-            width={200}
-            height={67}
-            priority
-            className="drop-shadow-lg"
-          />
+      <div className="absolute z-10 w-full flex justify-center px-6 top-8 left-0">
+        <div className="flex flex-col items-center">
+          <div className="w-[150px]">
+            <Image
+              src="/vettly-logo.png"
+              alt="Vettly"
+              width={150}
+              height={50}
+              priority
+              className="drop-shadow-lg"
+            />
+          </div>
+          <div className="mt-4 relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-400/10 to-transparent blur-sm" />
+            <p className="text-[10px] tracking-[0.2em] text-[#73FFF6] font-bold uppercase whitespace-nowrap text-center">
+              POWERED BY PEOPLE, PERFECTED BY TECH
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Signup Headline */}
+      <div className="relative z-10 w-full flex justify-center mb-12 mt-24">
+        <div className="text-center">
+          <h1 className={`${playfair.className} text-4xl font-black tracking-wider leading-none text-white`}>
+            CREATE PROFILE
+          </h1>
         </div>
       </div>
 
@@ -184,15 +201,6 @@ export default function SignupPage() {
       <div className="relative z-10 w-full max-w-5xl px-8 sm:px-8 mb-12 mt-8">
         {/* Signup Card */}
         <div className="relative w-full bg-white/10 backdrop-blur-xl rounded-3xl p-8 sm:p-8 shadow-lg border border-white/30">
-          {/* User Icon */}
-          <div className="absolute -top-12 -right-12">
-            <div className="w-24 h-24 bg-[#7badee]/95 rounded-full flex items-center justify-center border border-white/30">
-              <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-          </div>
-
           {/* Authentication Method Selection */}
           {!signupMethod && (
             <div className="flex flex-col space-y-4 max-w-md mx-auto">
