@@ -4,9 +4,10 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { inter, playfair } from '@/app/fonts';
+import Link from 'next/link';
 import { OrbField } from '@/app/components/gradients/OrbField';
 import { BsFillPersonFill } from 'react-icons/bs';
-import { GiDress } from 'react-icons/gi';
+import { GiTShirt } from 'react-icons/gi';
 import { IoBody } from 'react-icons/io5';
 import { FaHeart } from 'react-icons/fa';
 import { useAuth } from '@/context/AuthContext';
@@ -34,7 +35,7 @@ const imageTypes = {
   },
   style: {
     title: 'Personal Style',
-    icon: GiDress,
+    icon: GiTShirt,
     description: 'Express your fashion sense'
   },
   hobby: {
@@ -257,19 +258,37 @@ export default function ProfileImages() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1a1a1a] via-[#2a2a2a] to-[#1a1a1a]">
-      <div className="absolute inset-0 bg-gradient-to-br from-[#34D8F1]/20 via-transparent to-[#9333EA]/20" />
-      <div className="absolute inset-0 -top-32">
-        <OrbField />
+    <div className="relative min-h-screen w-full overflow-x-hidden">
+      {/* Background container with fixed position to cover entire viewport */}
+      <div className="fixed inset-0 w-full h-full" style={{ background: 'linear-gradient(to bottom right, #2800A3, #34D8F1)', zIndex: -10 }}>
+        <div className="absolute inset-0 bg-gradient-to-br from-[#34D8F1]/20 via-transparent to-[#34D8F1]/20" />
+        <div className="absolute inset-0 overflow-hidden">
+          <OrbField />
+        </div>
       </div>
-      <div className="relative z-10 container mx-auto px-4 py-16">
-        <div className="max-w-4xl mx-auto">
-          <h1 className={`${playfair.className} text-4xl font-bold text-white text-center mb-2`}>
+      
+      {/* Content container */}
+      <div className="relative z-10 container mx-auto px-4 py-8 md:py-16" style={{ paddingBottom: '2rem' }}>
+        <div className="flex justify-center mb-4">
+          <Link href="/">
+            <Image 
+              src="/vettly-logo.png" 
+              alt="Vettly Logo" 
+              width={150} 
+              height={60} 
+              className="h-auto w-auto" 
+            />
+          </Link>
+        </div>
+        <div className="max-w-4xl mx-auto mt-16">
+          <h1 className={`${playfair.className} text-4xl font-bold text-white text-center mb-6`}>
             Upload Your Photos
           </h1>
-          <p className={`${inter.className} text-lg text-white/80 text-center mb-12`}>
-            Help others get to know you better with some photos
-          </p>
+          <div className="px-6 sm:px-10 md:px-16 mx-auto">
+            <p className={`${inter.className} text-lg text-white/80 text-center mb-8 max-w-md mx-auto`}>
+              Upload your photos to help our matchmakers get to know you. There is no public profile and photos are only shared with your match once approved. You can update them anytime.
+            </p>
+          </div>
 
           {error && (
             <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
@@ -277,8 +296,8 @@ export default function ProfileImages() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <form onSubmit={handleSubmit} className="space-y-8 mt-24" style={{ background: 'transparent' }}>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-xs md:max-w-none mx-auto mobile-squares">
               {Object.entries(imageTypes).map(([key, info]) => {
                 const Icon = info.icon;
                 return (
@@ -310,8 +329,8 @@ export default function ProfileImages() {
                         </div>
                       ) : (
                         <div className="flex flex-col items-center justify-center h-full w-full group-hover:bg-white/5 transition-colors duration-200">
-                          <Icon className="h-14 w-14 text-cyan-400 group-hover:text-cyan-300 transition-colors duration-200 mb-3" />
-                          <span className="text-lg font-medium text-white group-hover:text-cyan-300 transition-colors duration-200">
+                          <Icon className="h-14 w-14 text-[#3E00FF] group-hover:text-[#3E00FF]/90 transition-colors duration-200 mb-3" />
+                          <span className="text-lg font-medium text-white group-hover:text-[#3E00FF]/90 transition-colors duration-200">
                             {info.title}
                           </span>
                           <span className="text-sm text-white/70 mt-1">
@@ -325,28 +344,22 @@ export default function ProfileImages() {
               })}
             </div>
 
-            <div className="flex justify-end mt-8">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className={`${inter.className} inline-flex justify-center items-center py-3 px-6 shadow-lg shadow-cyan-500/30 text-base font-semibold rounded-full text-white bg-cyan-500 hover:bg-cyan-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 transition-all duration-200 ${
-                  isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
-                }`}
-              >
-                {isSubmitting ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Uploading...
-                  </>
-                ) : (
-                  'Continue'
-                )}
-              </button>
-            </div>
+
+            {/* Form buttons removed */}
           </form>
+          
+          {/* Spacer div with reduced height to bring button up */}
+          <div style={{ height: '40px', marginTop: '20px' }}></div>
+          
+          {/* Continue button as part of the main content */}
+          <div className="flex justify-center mb-12">
+            <button
+              onClick={() => router.push('/dashboard')}
+              className={`${inter.className} inline-flex justify-center items-center py-3 px-16 min-w-[180px] shadow-lg shadow-indigo-500/30 text-base font-semibold rounded-full text-white bg-[#3E00FF] hover:bg-[#3E00FF]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3E00FF] transition-all duration-200`}
+            >
+              Continue
+            </button>
+          </div>
         </div>
       </div>
     </div>
