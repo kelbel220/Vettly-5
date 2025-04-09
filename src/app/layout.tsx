@@ -12,7 +12,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={playfair.className}>
+      <body className={`${playfair.className} hide-scrollbar`}>
         <Providers>
           {children}
         </Providers>

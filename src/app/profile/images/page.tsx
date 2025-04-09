@@ -26,22 +26,22 @@ const imageTypes = {
   face: {
     title: 'Face Photo',
     icon: BsFillPersonFill,
-    description: 'A clear photo of your face'
+    description: 'A clear photo of your face, no sunglasses and no filters.'
   },
   fullBody: {
     title: 'Full Body Shot',
     icon: IoBody,
-    description: 'Show your full appearance'
+    description: 'This helps us understand your overall appearance and body shape.'
   },
   style: {
     title: 'Personal Style',
     icon: GiTShirt,
-    description: 'Express your fashion sense'
+    description: 'Show what you might wear on a date or nice dinner.'
   },
   hobby: {
     title: 'Something You Love',
     icon: FaHeart,
-    description: 'Share your interests'
+    description: 'Show your hobbies or lifestyle interests.'
   }
 };
 
@@ -280,12 +280,12 @@ export default function ProfileImages() {
             />
           </Link>
         </div>
-        <div className="max-w-4xl mx-auto mt-16">
+        <div className="max-w-4xl mx-auto mt-24">
           <h1 className={`${playfair.className} text-4xl font-bold text-white text-center mb-6`}>
             Upload Your Photos
           </h1>
-          <div className="px-6 sm:px-10 md:px-16 mx-auto">
-            <p className={`${inter.className} text-lg text-white/80 text-center mb-8 max-w-md mx-auto`}>
+          <div className="flex justify-center px-6 sm:px-10 md:px-16 mx-auto">
+            <p className={`${inter.className} text-lg text-white/80 text-left mb-12 max-w-xl px-2 py-3`}>
               Upload your photos to help our matchmakers get to know you. There is no public profile and photos are only shared with your match once approved. You can update them anytime.
             </p>
           </div>
@@ -296,7 +296,7 @@ export default function ProfileImages() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-8 mt-24" style={{ background: 'transparent' }}>
+          <form onSubmit={handleSubmit} className="space-y-8 mt-6" style={{ background: 'transparent' }}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-xs md:max-w-none mx-auto mobile-squares">
               {Object.entries(imageTypes).map(([key, info]) => {
                 const Icon = info.icon;
@@ -328,7 +328,7 @@ export default function ProfileImages() {
                           />
                         </div>
                       ) : (
-                        <div className="flex flex-col items-center justify-center h-full w-full group-hover:bg-white/5 transition-colors duration-200">
+                        <div className="flex flex-col items-center justify-center h-full w-full group-hover:bg-white/5 transition-colors duration-200 px-6">
                           <Icon className="h-14 w-14 text-[#3E00FF] group-hover:text-[#3E00FF]/90 transition-colors duration-200 mb-3" />
                           <span className="text-lg font-medium text-white group-hover:text-[#3E00FF]/90 transition-colors duration-200">
                             {info.title}
@@ -345,21 +345,17 @@ export default function ProfileImages() {
             </div>
 
 
-            {/* Form buttons removed */}
+            {/* Submit button as part of the form */}
+            <div className="flex justify-center mt-8 mb-12">
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={`${inter.className} inline-flex justify-center items-center py-3 px-16 min-w-[180px] shadow-lg shadow-indigo-500/30 text-base font-semibold rounded-full text-white bg-[#3E00FF] hover:bg-[#3E00FF]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3E00FF] transition-all duration-200 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
+              >
+                {isSubmitting ? 'Uploading...' : 'Save & Continue'}
+              </button>
+            </div>
           </form>
-          
-          {/* Spacer div with reduced height to bring button up */}
-          <div style={{ height: '40px', marginTop: '20px' }}></div>
-          
-          {/* Continue button as part of the main content */}
-          <div className="flex justify-center mb-12">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className={`${inter.className} inline-flex justify-center items-center py-3 px-16 min-w-[180px] shadow-lg shadow-indigo-500/30 text-base font-semibold rounded-full text-white bg-[#3E00FF] hover:bg-[#3E00FF]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3E00FF] transition-all duration-200`}
-            >
-              Continue
-            </button>
-          </div>
         </div>
       </div>
     </div>

@@ -19,9 +19,9 @@ const SECTIONS = [
       { id: 'alcohol', text: 'How often do you consume alcohol?', type: 'select', options: ['Never', 'Occasionally (e.g., special occasions or a few times a year)', 'Socially (e.g., on weekends or with friends)', 'Regularly (e.g., most weeks)', 'Daily or almost daily'] },
       { id: 'alcoholPartner', text: 'Would you be happy with a partner who drinks more or less than you?', type: 'select', options: ['Yes, as long as it\'s respectful', 'Prefer someone with similar habits', 'No, I\'d prefer someone who drinks about the same amount as me'] },
       { id: 'smoking', text: 'Do you currently smoke cigarettes or vape?', type: 'select', options: ['No, and I never have', 'No, but I used to', 'Occasionally (socially or on rare occasions)', 'Yes, I vape', 'Yes, I smoke', 'Yes, I smoke and vape'] },
-      { id: 'smokingPartner', text: 'Would you be open to dating someone who smokes or vapes?', type: 'select', options: ['Yes', 'Only occasionally/socially', 'No'] },
+
       { id: 'drugs', text: 'Do you currently use any recreational drugs (e.g., marijuana, party drugs, prescription misuse)?', type: 'select', options: ['No, I don\'t use any recreational drugs', 'Occasionally in social settings', 'Yes, regularly (e.g., weekly or more)'] },
-      { id: 'drugsPartner', text: 'Would you be open to dating someone who currently uses recreational drugs?', type: 'select', options: ['Yes', 'Only occasionally/socially', 'No'] },
+
       { id: 'drugEnvironment', text: 'Are you comfortable in social environments where drugs may be present (e.g., parties, festivals)?', type: 'select', options: ['Yes, I\'m comfortable', 'I\'ll go but prefer not to be around it', 'No, I avoid those settings'] },
       { id: 'activityLevel', text: 'Which best describes your weekly activity level?', type: 'select', options: ['Not currently active', 'Lightly active (e.g., casual walks or stretching)', 'Moderately active (e.g., gym or fitness 2–3 times a week)', 'Very active (e.g., daily workouts, sport, or training)'] },
       { id: 'partnerActivity', text: 'What\'s your ideal level of activity in a partner?', type: 'select', options: ['I\'d prefer someone more active than me', 'I\'d like someone with a similar lifestyle', 'I\'m happy if they\'re less active than me'] },
@@ -48,7 +48,7 @@ const SECTIONS = [
       { id: 'financialExpectations', text: 'What best describes your financial expectations in a relationship?', type: 'select', options: ['I\'m happy to contribute equally', 'I\'d prefer to be financially supported', 'I\'d prefer to support my partner financially', 'I\'d prefer we each contribute in a way that reflects our incomes', 'Open to discussion based on the relationship'] },
       { id: 'householdResponsibilities', text: 'Which best describes your view on household responsibilities?', type: 'select', options: ['I prefer traditional roles (e.g., one person cooks, the other earns)', 'I believe roles should be shared equally', 'I prefer to do more of one side (e.g., cooking, cleaning, finances)', 'I\'m open to discussing roles based on individual strengths and time'] },
       { id: 'workLifeBalance', text: 'How do you feel about your current work-life balance?', type: 'select', options: ['I\'m mostly focused on work', 'I try to keep a balance but it\'s hard', 'I feel like I\'ve found a good rhythm', 'I prioritise lifestyle over work'] },
-      { id: 'partnerAmbition', text: 'What level of ambition do you prefer in a partner?', type: 'select', options: ['Ambition is not important to me', 'I\'d like someone moderately driven', 'I want someone highly ambitious and growth-focused', 'I\'d like someone who balances ambition with time for a relationship'] }
+
     ]
   },
   {
@@ -62,7 +62,7 @@ const SECTIONS = [
       { id: 'familyPartner', text: 'Do you want your partner to be close with their family?', type: 'select', options: ['Very important to me', 'Somewhat important', 'Not important'] },
       { id: 'familyInvolvement', text: 'How involved should your partner be with your family?', type: 'select', options: ['Very involved', 'Just for key events', 'Not much', 'Prefer to keep it separate'] },
       { id: 'children', text: 'Do you want children?', type: 'select', options: ['Yes', 'Open to it', 'No'] },
-      { id: 'childrenPartner', text: 'Would you date someone who already has kids?', type: 'select', options: ['Yes', 'Maybe', 'No'] },
+
       { id: 'marriage', text: 'Do you want to get married one day?', type: 'select', options: ['Yes', 'Open to it', 'No'] },
       { id: 'relationshipPace', text: 'How quickly do you like a relationship to progress?', type: 'select', options: ['Slowly', 'Naturally', 'Fairly quickly'] },
       { id: 'longDistance', text: 'Would you consider a long-distance relationship?', type: 'select', options: ['Yes', 'Only short term', 'No'] },
@@ -75,6 +75,7 @@ const SECTIONS = [
       { id: 'humour', text: 'How would you describe your sense of humour?', type: 'select', options: ['Dry / sarcastic', 'Silly / goofy', 'Dark / edgy', 'Witty / clever', 'Playful teasing'] },
       { id: 'stressHandling', text: 'How do you typically handle stress?', type: 'select', options: ['I need alone time', 'I talk it through with others', 'I use physical activity (e.g., gym, walking)', 'I use creative outlets (e.g., music, art, writing)', 'I practise meditation or mindfulness'] },
       { id: 'decisionApproach', text: 'How do you typically make important decisions?', type: 'select', options: ['Logically – I analyse pros and cons', 'Based on gut feelings or emotion', 'I consult others for advice', 'I use a mix of logic and intuition'] },
+
       { id: 'personalValues', text: 'What values are most important to you personally? (Select up to 3)', type: 'multiselect', options: ['Loyalty', 'Honesty', 'Ambition', 'Kindness', 'Family', 'Health & fitness', 'Adventurous / curious'] },
       { id: 'partnerValues', text: 'What values are most important for your partner to have? (Select up to 3)', type: 'multiselect', options: ['Loyalty', 'Honesty', 'Ambition', 'Kindness', 'Family', 'Health & fitness', 'Adventurous / curious'] },
       { id: 'otherValues', text: 'Are there any other values that matter to you in a relationship? (optional)', type: 'text', optional: true }
@@ -134,6 +135,7 @@ const SECTIONS = [
       { id: 'partnerCosmeticView', text: 'How do you feel about cosmetic enhancements on a partner?', type: 'select', options: ['Very open – it\'s a personal choice', 'I\'m okay with minor enhancements (e.g., injectables)', 'Prefer a natural appearance', 'No strong opinion'] },
     ]
   },
+
   {
     id: 'intimacy',
     title: 'Intimacy',
@@ -159,12 +161,15 @@ const SECTIONS = [
     id: 'dealBreakers',
     title: 'Deal-Breakers',
     questions: [
-      { id: 'smoking', text: 'How do you feel about smoking?', type: 'select', options: ['Deal-breaker', 'Prefer non-smoker', 'Occasional is ok', 'Don\'t mind', 'I smoke'] },
-      { id: 'drinking', text: 'How do you feel about drinking alcohol?', type: 'select', options: ['Deal-breaker', 'Prefer non-drinker', 'Occasional is ok', 'Social drinking is ok', 'I drink regularly'] },
-      { id: 'politics', text: 'How important is political compatibility?', type: 'scale', min: 1, max: 5, minLabel: 'Not important', maxLabel: 'Very important' },
-      { id: 'distance', text: 'What is the maximum distance you\'re willing to travel for a relationship?', type: 'select', options: ['Same neighborhood', 'Same city', 'Within 1 hour', 'Within a few hours', 'Long distance is ok'] },
-      { id: 'pets', text: 'How do you feel about pets?', type: 'select', options: ['Don\'t want pets', 'Some pets are ok', 'Love pets', 'Have pets that are important to me'] },
-      { id: 'otherDealBreakers', text: 'Are there any other absolute deal-breakers for you?', type: 'text' },
+      { id: 'dealBreakers', text: 'Do any of the following apply as deal breakers for you? (Tick all that apply)', type: 'multiselect', options: [
+        'I wouldn\'t date someone who already has children',
+        'I wouldn\'t date someone who smokes',
+        'I wouldn\'t date someone who drinks heavily',
+        'I wouldn\'t date someone who uses drugs',
+        'I wouldn\'t date someone who has been married before',
+        'I wouldn\'t date someone who lacks ambition or direction'
+      ]},
+      { id: 'otherDealBreakers', text: 'Are there any other deal breakers for you that aren\'t listed here?', type: 'text', optional: true }
     ]
   }
 ];
@@ -176,6 +181,8 @@ export default function Questionnaire() {
   const auth: AuthContextType = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
+  const [showInstructions, setShowInstructions] = useState(true);
+  const [showCompletion, setShowCompletion] = useState(false);
   const [currentSection, setCurrentSection] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
   const [otherInputs, setOtherInputs] = useState<{[key: string]: string}>({});
@@ -314,9 +321,9 @@ export default function Questionnaire() {
     } 
     // If completed all sections
     else {
-      // Final save and redirect
+      // Final save and show completion page
       await saveProgress(true);
-      router.push('/dashboard');
+      setShowCompletion(true);
     }
   };
 
@@ -520,6 +527,117 @@ export default function Questionnaire() {
             />
             <div className="w-16 h-16 border-4 border-[#34D8F1] border-t-transparent rounded-full animate-spin"></div>
             <p className="mt-4 text-white font-medium">Loading your questionnaire...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (showInstructions) {
+    return (
+      <div className="relative min-h-screen w-full overflow-x-hidden flex flex-col">
+        {/* Background container with fixed position to cover entire viewport */}
+        <div className="fixed inset-0 w-full h-full" style={{ background: 'linear-gradient(to bottom right, #2800A3, #34D8F1)', zIndex: -10 }}>
+          <div className="absolute inset-0 bg-gradient-to-br from-[#34D8F1]/20 via-transparent to-[#34D8F1]/20" />
+          <div className="absolute inset-0 overflow-hidden">
+            <OrbField />
+          </div>
+        </div>
+        
+        {/* Instructions Content */}
+        <div className="relative z-10 flex flex-col min-h-screen w-full">
+          <div className="flex justify-center pt-8 pb-4">
+            <Image
+              src="/vettly-logo.png"
+              alt="Vettly Logo"
+              width={120}
+              height={30}
+              className="h-auto w-auto"
+              priority
+            />
+          </div>
+          <div className="flex flex-col items-center max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto px-6 py-8 text-center flex-grow justify-center">
+
+            
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-8">Before You Begin</h1>
+            
+            <div className="bg-white/10 backdrop-blur-sm p-8 rounded-xl border border-white/20 shadow-xl">
+              <p className={`${inter.className} text-white text-lg mb-6 leading-relaxed`}>
+                This questionnaire is here to help us understand you: your lifestyle, values, preferences, and what you're genuinely looking for in a partner.
+              </p>
+              
+              <p className={`${inter.className} text-white text-lg mb-6 leading-relaxed`}>
+                Please answer honestly. There are no right or wrong answers, and your responses are confidential. Be clear about what matters to you, but try not to limit yourself. Sometimes past experiences or unconscious biases can get in the way of meeting someone truly great.
+              </p>
+              
+              <p className={`${inter.className} text-white text-lg mb-6 leading-relaxed`}>
+                Keep an open mind. We're here to help you find someone who not only meets your preferences but also aligns with your deeper relationship goals.
+              </p>
+              
+              <p className="text-white text-xl font-semibold mt-8 mb-4">
+                Let's begin.
+              </p>
+              
+              <button 
+                onClick={() => setShowInstructions(false)}
+                className={`${inter.className} mt-6 px-12 py-4 bg-[#3B00CC] hover:bg-[#2800A3] transition-colors rounded-full text-white font-bold text-lg shadow-lg shadow-purple-900/30`}
+              >
+                Start Questionnaire
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (showCompletion) {
+    return (
+      <div className="relative min-h-screen w-full overflow-x-hidden flex flex-col">
+        {/* Background container with fixed position to cover entire viewport */}
+        <div className="fixed inset-0 w-full h-full" style={{ background: 'linear-gradient(to bottom right, #2800A3, #34D8F1)', zIndex: -10 }}>
+          <div className="absolute inset-0 bg-gradient-to-br from-[#34D8F1]/20 via-transparent to-[#34D8F1]/20" />
+          <div className="absolute inset-0 overflow-hidden">
+            <OrbField />
+          </div>
+        </div>
+        
+        {/* Completion Content */}
+        <div className="relative z-10 flex flex-col min-h-screen w-full">
+          <div className="flex justify-center pt-8 pb-4">
+            <Image
+              src="/vettly-logo.png"
+              alt="Vettly Logo"
+              width={120}
+              height={30}
+              className="h-auto w-auto"
+              priority
+            />
+          </div>
+          <div className="flex flex-col items-center max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto px-6 py-8 text-center flex-grow justify-center">
+            
+            <h1 className="text-4xl md:text-5xl font-bold text-white mb-8">You're All Done</h1>
+            
+            <div className="bg-white/10 backdrop-blur-sm p-8 rounded-xl border border-white/20 shadow-xl">
+              <p className={`${inter.className} text-white text-lg mb-6 leading-relaxed`}>
+                We've now started the matchmaking process.
+              </p>
+              
+              <p className={`${inter.className} text-white text-lg mb-6 leading-relaxed`}>
+                You'll be notified as soon as we have a potential match. There's no exact timeline, as finding the right person takes time, but know that we're on it.
+              </p>
+              
+              <p className={`${inter.className} text-white text-lg mb-6 leading-relaxed`}>
+                We're excited to be part of your journey.
+              </p>
+              
+              <button 
+                onClick={() => router.push('/dashboard')}
+                className={`${inter.className} mt-6 px-12 py-4 bg-[#3B00CC] hover:bg-[#2800A3] transition-colors rounded-full text-white font-bold text-lg shadow-lg shadow-purple-900/30`}
+              >
+                Return to Dashboard
+              </button>
+            </div>
           </div>
         </div>
       </div>

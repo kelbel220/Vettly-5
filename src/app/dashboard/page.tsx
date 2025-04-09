@@ -46,25 +46,39 @@ export default function Dashboard() {
     const fetchUserData = async () => {
       if (auth.currentUser) {
         try {
+          console.log('Current user ID:', auth.currentUser.uid);
+          console.log('Current user photoURL:', auth.currentUser.photoURL);
+          
           const userRef = doc(db, 'users', auth.currentUser.uid);
           const userSnap = await getDoc(userRef);
           
           if (userSnap.exists()) {
             const data = userSnap.data() as UserData;
-            console.log('User data:', data);
+            console.log('User data from Firestore:', data);
             setUserData(data);
             
             // Try to get profile photo URL from user document first, then fall back to auth user photoURL
-            const photoUrl = data.profilePhotoUrl || auth.currentUser.photoURL || '/placeholder-profile.jpg';
-            console.log('Using profile photo URL:', photoUrl);
-            setImageError(false);
-            setProfileImage(photoUrl);
+            if (data.profilePhotoUrl) {
+              console.log('Found profilePhotoUrl in Firestore:', data.profilePhotoUrl);
+              setImageError(false);
+              setProfileImage(data.profilePhotoUrl);
+            } else if (auth.currentUser.photoURL) {
+              console.log('Using auth user photoURL:', auth.currentUser.photoURL);
+              setImageError(false);
+              setProfileImage(auth.currentUser.photoURL);
+            } else {
+              console.log('No profile image found, using placeholder');
+              setImageError(true);
+            }
           } else {
-            console.log('No user document found');
+            console.log('No user document found in Firestore');
             if (auth.currentUser.photoURL) {
               console.log('Using auth user photoURL:', auth.currentUser.photoURL);
               setImageError(false);
               setProfileImage(auth.currentUser.photoURL);
+            } else {
+              console.log('No photoURL in auth user, using placeholder');
+              setImageError(true);
             }
           }
         } catch (error) {
@@ -74,10 +88,14 @@ export default function Dashboard() {
             console.log('Using auth user photoURL after error:', auth.currentUser.photoURL);
             setImageError(false);
             setProfileImage(auth.currentUser.photoURL);
+          } else {
+            console.log('No photoURL available after error, using placeholder');
+            setImageError(true);
           }
         }
       } else {
         console.log('No current user');
+        setImageError(true);
       }
       setIsLoading(false);
     };
@@ -93,7 +111,7 @@ export default function Dashboard() {
   const handleImageError = () => {
     console.log('Error loading image:', profileImage);
     setImageError(true);
-    setProfileImage('/placeholder-profile.jpg');
+    // Don't set a new profileImage path, just show the fallback UI
   };
 
   const handleImageLoad = () => {
@@ -116,10 +134,13 @@ export default function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-blue-50">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-100/80 via-blue-50/50 to-white/30" />
-        <div className="absolute inset-0">
-          <OrbField />
+      <div className="relative min-h-screen w-full overflow-x-hidden">
+        {/* Background container with fixed position to cover entire viewport */}
+        <div className="fixed inset-0 w-full h-full" style={{ background: 'linear-gradient(to bottom right, #2800A3, #34D8F1)', zIndex: -10 }}>
+          <div className="absolute inset-0 bg-gradient-to-br from-[#34D8F1]/20 via-transparent to-[#34D8F1]/20" />
+          <div className="absolute inset-0 overflow-hidden">
+            <OrbField />
+          </div>
         </div>
         <div className="relative z-10 flex flex-col items-center justify-center h-full">
           <div className="w-64 h-64 rounded-full bg-white/10 animate-pulse mb-8" />
@@ -132,10 +153,13 @@ export default function Dashboard() {
 
   if (!userDataState && !isLoading) {
     return (
-      <div className="min-h-screen bg-blue-50">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-100/80 via-blue-50/50 to-white/30" />
-        <div className="absolute inset-0">
-          <OrbField />
+      <div className="relative min-h-screen w-full overflow-x-hidden">
+        {/* Background container with fixed position to cover entire viewport */}
+        <div className="fixed inset-0 w-full h-full" style={{ background: 'linear-gradient(to bottom right, #2800A3, #34D8F1)', zIndex: -10 }}>
+          <div className="absolute inset-0 bg-gradient-to-br from-[#34D8F1]/20 via-transparent to-[#34D8F1]/20" />
+          <div className="absolute inset-0 overflow-hidden">
+            <OrbField />
+          </div>
         </div>
         <div className="relative z-10 flex flex-col items-center justify-center h-screen">
           <div className="text-center">
@@ -155,17 +179,17 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-blue-50 flex flex-col lg:flex-row">
-      {/* Main Content Area */}
-      <main className="flex-1 relative overflow-hidden flex flex-col pb-[80px] lg:pb-0">
-        {/* Background Elements */}
-        <div className="absolute inset-0">
-          {/* Background Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-100/80 via-blue-50/50 to-white/30" />
-          <div className="absolute inset-0">
-            <OrbField />
-          </div>
+    <div className="relative min-h-screen w-full overflow-x-hidden flex flex-col lg:flex-row">
+      {/* Background container with fixed position to cover entire viewport */}
+      <div className="fixed inset-0 w-full h-full" style={{ background: 'linear-gradient(to bottom right, #2800A3, #34D8F1)', zIndex: -10 }}>
+        <div className="absolute inset-0 bg-gradient-to-br from-[#34D8F1]/20 via-transparent to-[#34D8F1]/20" />
+        <div className="absolute inset-0 overflow-hidden">
+          <OrbField />
         </div>
+      </div>
+      
+      {/* Main Content Area */}
+      <main className="flex-1 relative z-10 overflow-hidden flex flex-col pb-[80px] lg:pb-0">
 
         {/* Content Container */}
         <div className="relative h-full z-10">
@@ -224,7 +248,7 @@ export default function Dashboard() {
               </div>
               <h1 className="text-6xl font-normal tracking-tight mb-4 text-white">Welcome back, {userDataState?.firstName || 'User'}</h1>
               <div className={inter.className}>
-                <p className="text-3xl font-normal tracking-wide text-[rgb(168,85,247)]/65 lg:font-light">Matchmaking, Revolutionised</p>
+                <p className="text-3xl font-normal tracking-wide text-[#3B00CC]/65 lg:font-light">Matchmaking, Revolutionised</p>
                 <div className="space-y-3 mb-8">
                   <div className="h-8"></div>
                 </div>
@@ -239,12 +263,12 @@ export default function Dashboard() {
                       <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-xl text-white">Your Progress</h3>
-                          <span className="text-purple-400 text-sm">5 of 5 Steps Complete</span>
+                          <span className="text-[#3B00CC] text-sm">5 of 5 Steps Complete</span>
                         </div>
                         {/* Progress Bar */}
                         <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
                           <div 
-                            className="absolute left-0 top-0 h-full !bg-gradient-to-r !from-[#D8B4FE] !via-[#7E22CE] !to-[#4C1D95]"
+                            className="absolute left-0 top-0 h-full !bg-gradient-to-r !from-[#73FFF6] !to-[#3B00CC]"
                             style={{ width: '100%' }}
                           />
                         </div>
@@ -256,7 +280,7 @@ export default function Dashboard() {
                         <div className="flex items-center justify-between mb-8">
                           <div className="flex items-center gap-3">
                             <div className="p-2 bg-white/5 rounded-xl">
-                              <svg className="w-5 h-5" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="1.5" strokeOpacity="0.7" viewBox="0 0 24 24">
+                              <svg className="w-5 h-5" fill="none" stroke="#3B00CC" strokeWidth="1.5" strokeOpacity="0.7" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
                               </svg>
                             </div>
@@ -301,14 +325,14 @@ export default function Dashboard() {
                         <div className="space-y-1">
                           {/* Profile Created */}
                           <div className="group relative grid grid-cols-[2rem_1fr_auto] items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300">
-                            <div className="w-6 h-6 rounded-full bg-[#A855F7] flex items-center justify-center mt-1">
+                            <div className="w-6 h-6 rounded-full bg-[#3B00CC] flex items-center justify-center mt-1">
                               <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-                                <path fillRule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z" clipRule="evenodd" />
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
                               </svg>
                             </div>
                             <div className="text-left">
                               <div className="flex items-center gap-2">
-                                <h4 className="text-lg text-white leading-tight group-hover:text-purple-400 transition-colors duration-300">Profile Created</h4>
+                                <h4 className="text-lg text-white leading-tight group-hover:text-[#3B00CC] transition-colors duration-300">Profile Created</h4>
                                 {/* Help Icon */}
                                 <button className="group-hover:opacity-100 opacity-0 transition-opacity" title="Your basic profile information helps us understand who you are">
                                   <svg className="w-4 h-4 text-white/60 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -326,14 +350,14 @@ export default function Dashboard() {
 
                           {/* Photos Uploaded */}
                           <div className="group relative grid grid-cols-[2rem_1fr_auto] items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300">
-                            <div className="w-6 h-6 rounded-full bg-[#A855F7] flex items-center justify-center mt-1">
+                            <div className="w-6 h-6 rounded-full bg-[#3B00CC] flex items-center justify-center mt-1">
                               <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-                                <path fillRule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z" clipRule="evenodd" />
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
                               </svg>
                             </div>
                             <div className="text-left">
                               <div className="flex items-center gap-2">
-                                <h4 className="text-lg text-white leading-tight group-hover:text-purple-400 transition-colors duration-300">Photos Uploaded</h4>
+                                <h4 className="text-lg text-white leading-tight group-hover:text-[#3B00CC] transition-colors duration-300">Photos Uploaded</h4>
                                 {/* Help Icon */}
                                 <button className="group-hover:opacity-100 opacity-0 transition-opacity" title="Photos increase your match rate by 80%">
                                   <svg className="w-4 h-4 text-white/60 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -350,15 +374,15 @@ export default function Dashboard() {
                           <div className="w-px h-8 bg-white/10 ml-3"></div>
 
                           {/* Questionnaire */}
-                          <div className="group relative grid grid-cols-[2rem_1fr_auto] items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300">
-                            <div className="w-6 h-6 rounded-full bg-[#A855F7] flex items-center justify-center mt-1">
+                          <div onClick={() => router.push('/questionnaire')} className="group relative grid grid-cols-[2rem_1fr_auto] items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300 cursor-pointer">
+                            <div className="w-6 h-6 rounded-full bg-[#3B00CC] flex items-center justify-center mt-1">
                               <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-                                <path fillRule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z" clipRule="evenodd" />
+                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
                               </svg>
                             </div>
                             <div className="text-left">
                               <div className="flex items-center gap-2">
-                                <h4 className="text-lg text-white leading-tight group-hover:text-purple-400 transition-colors duration-300">Questionnaire</h4>
+                                <h4 className="text-lg text-white leading-tight group-hover:text-[#3B00CC] transition-colors duration-300">Questionnaire</h4>
                                 {/* Help Icon */}
                                 <button className="group-hover:opacity-100 opacity-0 transition-opacity" title="Help us understand your preferences (Est. 5 mins)">
                                   <svg className="w-4 h-4 text-white/60 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -432,7 +456,7 @@ export default function Dashboard() {
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-3">
                               <div className="p-2 bg-white/10 rounded-lg">
-                                <svg className="w-5 h-5" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="1.5" strokeOpacity="0.7" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5" fill="none" stroke="#3B00CC" strokeWidth="1.5" strokeOpacity="0.7" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0121 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                                 </svg>
                               </div>
@@ -447,11 +471,11 @@ export default function Dashboard() {
                           <div className="flex flex-col items-center justify-center min-h-[100px] bg-white/5 rounded-xl">
                             <div className="text-center py-4 px-6">
                               <div className="w-10 h-10 mx-auto mb-3 rounded-full bg-white/5 flex items-center justify-center">
-                                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="1.5" strokeOpacity="0.7" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5 text-[#3B00CC]" fill="none" stroke="#3B00CC" strokeWidth="1.5" strokeOpacity="0.7" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0121 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                                 </svg>
                               </div>
-                              <h4 className="text-lg font-medium text-purple-400 mb-1">No Tips</h4>
+                              <h4 className="text-lg font-medium text-[#3B00CC] mb-1">No Tips</h4>
                               <p className="text-white text-xs">
                                 Tips will appear here
                               </p>
@@ -466,7 +490,7 @@ export default function Dashboard() {
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-3">
                               <div className="p-2 bg-white/5 rounded-xl">
-                                <svg className="w-5 h-5" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="1.5" strokeOpacity="0.7" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5" fill="none" stroke="#3B00CC" strokeWidth="1.5" strokeOpacity="0.7" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                                 </svg>
                               </div>
@@ -481,11 +505,11 @@ export default function Dashboard() {
                           <div className="flex flex-col items-center justify-center min-h-[100px] bg-white/5 rounded-xl">
                             <div className="text-center py-4 px-6">
                               <div className="w-10 h-10 mx-auto mb-3 rounded-full bg-white/5 flex items-center justify-center">
-                                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="1.5" strokeOpacity="0.7" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5 text-[#3B00CC]" fill="none" stroke="#3B00CC" strokeWidth="1.5" strokeOpacity="0.7" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                                 </svg>
                               </div>
-                              <h4 className="text-lg font-medium text-purple-400 mb-1">No Messages</h4>
+                              <h4 className="text-lg font-medium text-[#3B00CC] mb-1">No Messages</h4>
                               <p className="text-white text-xs">
                                 Messages will appear here
                               </p>
@@ -500,7 +524,7 @@ export default function Dashboard() {
                           <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-3">
                               <div className="p-2 bg-white/10 rounded-lg">
-                                <svg className="w-5 h-5" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="1.5" strokeOpacity="0.7" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5" fill="none" stroke="#3B00CC" strokeWidth="1.5" strokeOpacity="0.7" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0121 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                                 </svg>
                               </div>
@@ -515,11 +539,11 @@ export default function Dashboard() {
                           <div className="flex flex-col items-center justify-center min-h-[100px] bg-white/5 rounded-xl">
                             <div className="text-center py-4 px-6">
                               <div className="w-10 h-10 mx-auto mb-3 rounded-full bg-white/5 flex items-center justify-center">
-                                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="1.5" strokeOpacity="0.7" viewBox="0 0 24 24">
+                                <svg className="w-5 h-5 text-[#3B00CC]" fill="none" stroke="#3B00CC" strokeWidth="1.5" strokeOpacity="0.7" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0121 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                                 </svg>
                               </div>
-                              <h4 className="text-lg font-medium text-purple-400 mb-1">No Events</h4>
+                              <h4 className="text-lg font-medium text-[#3B00CC] mb-1">No Events</h4>
                               <p className="text-white text-xs">
                                 Events will appear here
                               </p>
@@ -541,22 +565,22 @@ export default function Dashboard() {
         <div className="flex gap-10">
           {[
             { id: 'dashboard', icon: (
-              <svg className="w-6 h-6" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="2" viewBox="0 0 24 24">
+              <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
             )},
             { id: 'messages', icon: (
-              <svg className="w-6 h-6" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="2" viewBox="0 0 24 24">
+              <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
               </svg>
             )},
             { id: 'matches', icon: (
-              <svg className="w-6 h-6" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="2" viewBox="0 0 24 24">
+              <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
               </svg>
             )},
             { id: 'settings', icon: (
-              <svg className="w-6 h-6" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="2" viewBox="0 0 24 24">
+              <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
               </svg>
             )}
@@ -585,22 +609,22 @@ export default function Dashboard() {
           <nav className="flex flex-col items-center space-y-6 flex-1">
             {[
               { id: 'dashboard', icon: (
-                <svg className="w-6 h-6" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="2" viewBox="0 0 24 24">
+                <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                 </svg>
               )},
               { id: 'messages', icon: (
-                <svg className="w-6 h-6" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="2" viewBox="0 0 24 24">
+                <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
                 </svg>
               )},
               { id: 'matches', icon: (
-                <svg className="w-6 h-6" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="2" viewBox="0 0 24 24">
+                <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
                 </svg>
               )},
               { id: 'settings', icon: (
-                <svg className="w-6 h-6" fill="none" stroke="rgb(168, 85, 247)" strokeWidth="2" viewBox="0 0 24 24">
+                <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
                 </svg>
               )}

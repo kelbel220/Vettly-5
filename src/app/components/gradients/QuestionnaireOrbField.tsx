@@ -38,9 +38,9 @@ export const QuestionnaireOrbField: React.FC<OrbFieldProps> = ({ className = "" 
       size: isMobile ? 300 : 500,
       blur: isMobile ? 40 : 60,
       colors: [
-        'rgba(88, 28, 135, 0.9) 0%',
-        'rgba(88, 28, 135, 0.7) 40%',
-        'rgba(88, 28, 135, 0) 80%'
+        'rgba(40, 0, 163, 0.9) 0%',
+        'rgba(40, 0, 163, 0.7) 40%',
+        'rgba(40, 0, 163, 0) 80%'
       ],
       position: {
         right: '5%',
@@ -59,9 +59,9 @@ export const QuestionnaireOrbField: React.FC<OrbFieldProps> = ({ className = "" 
       size: isMobile ? 300 : 500,
       blur: isMobile ? 40 : 60,
       colors: [
-        'rgba(88, 28, 135, 0.9) 0%',
-        'rgba(88, 28, 135, 0.7) 40%',
-        'rgba(88, 28, 135, 0) 80%'
+        'rgba(40, 0, 163, 0.9) 0%',
+        'rgba(40, 0, 163, 0.7) 40%',
+        'rgba(40, 0, 163, 0) 80%'
       ],
       position: {
         left: '5%',
@@ -80,9 +80,9 @@ export const QuestionnaireOrbField: React.FC<OrbFieldProps> = ({ className = "" 
       size: isMobile ? 300 : 500,
       blur: isMobile ? 40 : 60,
       colors: [
-        'rgba(88, 28, 135, 0.9) 0%',
-        'rgba(88, 28, 135, 0.7) 40%',
-        'rgba(88, 28, 135, 0) 80%'
+        'rgba(40, 0, 163, 0.9) 0%',
+        'rgba(40, 0, 163, 0.7) 40%',
+        'rgba(40, 0, 163, 0) 80%'
       ],
       position: {
         right: '5%',
@@ -101,9 +101,9 @@ export const QuestionnaireOrbField: React.FC<OrbFieldProps> = ({ className = "" 
       size: isMobile ? 300 : 500,
       blur: isMobile ? 40 : 60,
       colors: [
-        'rgba(88, 28, 135, 0.9) 0%',
-        'rgba(88, 28, 135, 0.7) 40%',
-        'rgba(88, 28, 135, 0) 80%'
+        'rgba(40, 0, 163, 0.9) 0%',
+        'rgba(40, 0, 163, 0.7) 40%',
+        'rgba(40, 0, 163, 0) 80%'
       ],
       position: {
         left: '5%',

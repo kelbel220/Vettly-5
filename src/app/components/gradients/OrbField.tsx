@@ -34,7 +34,7 @@ export const OrbField: React.FC<OrbFieldProps> = ({ className = "" }) => {
       colors: [
         i % 2 === 0 
           ? 'rgba(0, 240, 255, 1) 0%'         // Very bright cyan
-          : 'rgba(0, 80, 200, 1) 0%',         // Rich dark blue
+          : 'rgba(40, 0, 163, 1) 0%',         // Deep purple (#2800A3)
         'transparent 80%'
       ],
       animate: {
@@ -62,7 +62,7 @@ export const OrbField: React.FC<OrbFieldProps> = ({ className = "" }) => {
       colors: [
         i % 3 === 0 || i % 3 === 1
           ? 'rgba(0, 240, 255, 1) 0%'         // Very bright cyan (67% of orbs)
-          : 'rgba(0, 80, 200, 1) 0%',         // Rich dark blue (33% of orbs)
+          : 'rgba(40, 0, 163, 1) 0%',         // Deep purple (#2800A3) (33% of orbs)
         'transparent 75%'
       ],
       animate: {
@@ -120,7 +120,7 @@ export const OrbField: React.FC<OrbFieldProps> = ({ className = "" }) => {
       colors: [
         i % 4 <= 2
           ? 'rgba(0, 240, 255, 1) 0%'         // Very bright cyan (75% of orbs)
-          : 'rgba(0, 80, 200, 1) 0%',         // Rich dark blue (25% of orbs)
+          : 'rgba(40, 0, 163, 1) 0%',         // Deep purple (#2800A3) (25% of orbs)
         'transparent 80%'
       ],
       animate: {
@@ -144,7 +144,7 @@ export const OrbField: React.FC<OrbFieldProps> = ({ className = "" }) => {
       size: 1600,
       blur: 110,
       colors: [
-        'rgba(0, 80, 200, 1) 0%',      // Rich dark blue
+        'rgba(40, 0, 163, 1) 0%',      // Deep purple (#2800A3)
         'transparent 80%'
       ],
       position: {
