@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { inter } from '../fonts';
+import { inter, playfair } from '../fonts';
 import { useAuth, AuthContextType } from '@/context/AuthContext';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase-init';
@@ -16,70 +16,143 @@ const SECTIONS = [
     id: 'lifestyle',
     title: 'Lifestyle & Career',
     questions: [
-      { id: 'career', text: 'What is your current career field?', type: 'text' },
-      { id: 'workLifeBalance', text: 'How important is work-life balance to you?', type: 'scale', min: 1, max: 5, minLabel: 'Not important', maxLabel: 'Very important' },
-      { id: 'ambition', text: 'How ambitious are you in your career?', type: 'scale', min: 1, max: 5, minLabel: 'Not ambitious', maxLabel: 'Very ambitious' },
-      { id: 'travel', text: 'How often do you like to travel?', type: 'select', options: ['Rarely', 'A few times a year', 'Monthly', 'As much as possible'] },
-      { id: 'socialLife', text: 'How would you describe your social life?', type: 'select', options: ['Very quiet/private', 'Small circle of friends', 'Balanced', 'Very active/outgoing'] },
-      { id: 'hobbies', text: 'What are your main hobbies or interests?', type: 'text' },
-      { id: 'exercise', text: 'How important is physical fitness to you?', type: 'scale', min: 1, max: 5, minLabel: 'Not important', maxLabel: 'Very important' },
+      { id: 'alcohol', text: 'How often do you consume alcohol?', type: 'select', options: ['Never', 'Occasionally (e.g., special occasions or a few times a year)', 'Socially (e.g., on weekends or with friends)', 'Regularly (e.g., most weeks)', 'Daily or almost daily'] },
+      { id: 'alcoholPartner', text: 'Would you be happy with a partner who drinks more or less than you?', type: 'select', options: ['Yes, as long as it\'s respectful', 'Prefer someone with similar habits', 'No, I\'d prefer someone who drinks about the same amount as me'] },
+      { id: 'smoking', text: 'Do you currently smoke cigarettes or vape?', type: 'select', options: ['No, and I never have', 'No, but I used to', 'Occasionally (socially or on rare occasions)', 'Yes, I vape', 'Yes, I smoke', 'Yes, I smoke and vape'] },
+      { id: 'smokingPartner', text: 'Would you be open to dating someone who smokes or vapes?', type: 'select', options: ['Yes', 'Only occasionally/socially', 'No'] },
+      { id: 'drugs', text: 'Do you currently use any recreational drugs (e.g., marijuana, party drugs, prescription misuse)?', type: 'select', options: ['No, I don\'t use any recreational drugs', 'Occasionally in social settings', 'Yes, regularly (e.g., weekly or more)'] },
+      { id: 'drugsPartner', text: 'Would you be open to dating someone who currently uses recreational drugs?', type: 'select', options: ['Yes', 'Only occasionally/socially', 'No'] },
+      { id: 'drugEnvironment', text: 'Are you comfortable in social environments where drugs may be present (e.g., parties, festivals)?', type: 'select', options: ['Yes, I\'m comfortable', 'I\'ll go but prefer not to be around it', 'No, I avoid those settings'] },
+      { id: 'activityLevel', text: 'Which best describes your weekly activity level?', type: 'select', options: ['Not currently active', 'Lightly active (e.g., casual walks or stretching)', 'Moderately active (e.g., gym or fitness 2–3 times a week)', 'Very active (e.g., daily workouts, sport, or training)'] },
+      { id: 'partnerActivity', text: 'What\'s your ideal level of activity in a partner?', type: 'select', options: ['I\'d prefer someone more active than me', 'I\'d like someone with a similar lifestyle', 'I\'m happy if they\'re less active than me'] },
+      { id: 'healthApproach', text: 'How would you describe your approach to health and wellness?', type: 'select', options: ['I don\'t prioritise it at the moment', 'I try to be mindful but not strict', 'I make conscious decisions most of the time', 'Health is a top priority in my daily life'] },
+      { id: 'travelFrequency', text: 'How often do you currently travel (domestically or internationally)?', type: 'select', options: ['Rarely or never', 'Once or twice a year', 'Every few months', 'Frequently (monthly or more)'] },
+      { id: 'travelFlexibility', text: 'How flexible is your schedule when it comes to spontaneous travel?', type: 'select', options: ['Not at all – my schedule is fixed', 'Somewhat flexible – I can plan in advance', 'Very flexible – I can leave with short notice'] },
+      { id: 'relocation', text: 'Would you consider relocating for the right person or relationship?', type: 'select', options: ['No, I\'m settled and not open to moving', 'Possibly, depending on the location and stage of relationship', 'Yes, I\'m open to relocating in future'] },
+      { id: 'alternativeTherapies', text: 'How do you feel about natural or alternative therapies (e.g., acupuncture, energy healing, naturopathy)?', type: 'select', options: ['I use them regularly or believe strongly in them', 'I\'m open-minded but don\'t use them myself', 'I\'m neutral or unsure', 'I don\'t believe in them and prefer traditional medicine'] },
+      { id: 'vaccinations', text: 'Which statement best matches your views on vaccinations?', type: 'select', options: ['I follow recommended vaccination schedules for myself and family', 'I choose selectively based on my own research', 'I\'m generally unsure or neutral', 'I avoid vaccinations whenever possible'] },
+      { id: 'diet', text: 'What best describes your usual diet?', type: 'select', options: ['No specific preference / I eat everything', 'Vegetarian', 'Vegan', 'Pescatarian', 'Gluten-free / dairy-free / other restriction', 'Other (please specify)'] },
+      { id: 'dietPartner', text: 'Would you be comfortable with a partner who has a different diet to you?', type: 'select', options: ['Yes', 'I\'d prefer someone with a similar diet', 'No'] },
+      { id: 'education', text: 'What\'s your highest level of education completed?', type: 'select', options: ['High school', 'Trade or vocational qualification', 'University – Bachelor\'s degree', 'Postgraduate (Master\'s, PhD, etc.)', 'Other (please specify)'] },
+      { id: 'educationPartner', text: 'Is your partner\'s level of education important to you?', type: 'select', options: ['Not important', 'Somewhat important', 'Very important'] },
+      { id: 'profession', text: 'What is your profession?', type: 'text' },
+      { id: 'workHoursPerWeek', text: 'On average, how many hours do you work per week?', type: 'select', options: ['Under 20 hours', '20–30 hours', '30–40 hours', '40–50 hours', 'Over 50 hours'] },
+      { id: 'workSchedule', text: 'What are your usual work hours?', type: 'select', options: ['Mostly weekdays, 9–5', 'Shift work (e.g., nights or weekends)', 'Flexible or remote hours', 'Varies week to week'] },
+      { id: 'workTravel', text: 'Do you travel for work?', type: 'select', options: ['No, not at all', 'Occasionally (a few times a year)', 'Regularly (monthly or more)'] },
+      { id: 'partnerWorkTravel', text: 'Would you be happy if your partner\'s job involved regular travel?', type: 'select', options: ['Yes, I\'d enjoy the space and independence', 'It\'s okay as long as we stay connected', 'I\'d prefer someone who is mostly at home'] },
+      { id: 'workFlexibility', text: 'Would your current job allow flexibility to prioritise a relationship?', type: 'select', options: ['Yes, I have good flexibility', 'Some flexibility, depending on the time', 'Not much flexibility right now', 'No, my job is very demanding'] },
+      { id: 'partnerFlexibility', text: 'How important is it that your partner has flexibility to spend time with you?', type: 'select', options: ['Very important – quality time is a top priority', 'Somewhat important – I understand busy periods', 'Not important – I value independence in a relationship'] },
+      { id: 'workSatisfaction', text: 'Are you happy with your current work situation?', type: 'select', options: ['Yes, I enjoy what I do and feel fulfilled', 'It\'s fine for now, but I\'m open to change', 'Not really – I\'m actively seeking something else'] },
+      { id: 'careerFuture', text: 'Do you see yourself in the same profession in 5 years?', type: 'select', options: ['Yes, I plan to grow in this field', 'Possibly, but I\'m open to change', 'No, I want to move into something different'] },
+      { id: 'careerApproach', text: 'Which best describes your approach to your career?', type: 'select', options: ['I work to live – it\'s not my main focus', 'I like my job but it\'s not everything', 'I\'m driven and ambitious in my career', 'My career is central to my identity and lifestyle'] },
+      { id: 'financialExpectations', text: 'What best describes your financial expectations in a relationship?', type: 'select', options: ['I\'m happy to contribute equally', 'I\'d prefer to be financially supported', 'I\'d prefer to support my partner financially', 'I\'d prefer we each contribute in a way that reflects our incomes', 'Open to discussion based on the relationship'] },
+      { id: 'householdResponsibilities', text: 'Which best describes your view on household responsibilities?', type: 'select', options: ['I prefer traditional roles (e.g., one person cooks, the other earns)', 'I believe roles should be shared equally', 'I prefer to do more of one side (e.g., cooking, cleaning, finances)', 'I\'m open to discussing roles based on individual strengths and time'] },
+      { id: 'workLifeBalance', text: 'How do you feel about your current work-life balance?', type: 'select', options: ['I\'m mostly focused on work', 'I try to keep a balance but it\'s hard', 'I feel like I\'ve found a good rhythm', 'I prioritise lifestyle over work'] },
+      { id: 'partnerAmbition', text: 'What level of ambition do you prefer in a partner?', type: 'select', options: ['Ambition is not important to me', 'I\'d like someone moderately driven', 'I want someone highly ambitious and growth-focused', 'I\'d like someone who balances ambition with time for a relationship'] }
     ]
   },
   {
     id: 'relationships',
     title: 'Values & Goals',
     questions: [
-      { id: 'commitment', text: 'What type of relationship are you looking for?', type: 'select', options: ['Casual dating', 'Serious but taking it slow', 'Committed relationship', 'Marriage-minded'] },
-      { id: 'children', text: 'Do you want children?', type: 'select', options: ['Definitely no', 'Probably no', 'Undecided', 'Probably yes', 'Definitely yes', 'Already have children and want more', 'Already have children and don\'t want more'] },
-      { id: 'familyValues', text: 'How important are family values to you?', type: 'scale', min: 1, max: 5, minLabel: 'Not important', maxLabel: 'Very important' },
-      { id: 'religion', text: 'How important is religion/spirituality in your life?', type: 'scale', min: 1, max: 5, minLabel: 'Not important', maxLabel: 'Very important' },
-      { id: 'finances', text: 'How do you prefer to handle finances in a relationship?', type: 'select', options: ['Completely separate', 'Mostly separate with shared expenses', 'Completely shared/joint'] },
-      { id: 'livingArrangement', text: 'What is your ideal living arrangement with a partner?', type: 'select', options: ['Living separately', 'Living together but with personal space', 'Fully shared living space'] },
+      { id: 'religion', text: 'Do you follow any religious or spiritual beliefs?', type: 'select', options: ['No', 'Yes – Christian', 'Yes – Catholic', 'Yes – Muslim', 'Yes – Hindu', 'Yes – Buddhist', 'Yes – Jewish', 'Yes – Sikh', 'Yes – Spiritual but not religious', 'Yes – Other (please specify)', 'Agnostic', 'Prefer not to say'], showOtherInput: true },
+      { id: 'religionImportance', text: 'How important are religious or spiritual beliefs in your life?', type: 'select', options: ['Not important', 'Somewhat important', 'Very important', 'Central to my life'] },
+      { id: 'religionPartner', text: 'Do you want your partner to share your beliefs?', type: 'select', options: ['Yes, strongly prefer it', 'Ideally yes, but flexible', 'No, I\'m open'] },
+      { id: 'familyCloseness', text: 'How close are you to your family?', type: 'select', options: ['Very close', 'Somewhat close', 'Not close', 'Not in contact'] },
+      { id: 'familyPartner', text: 'Do you want your partner to be close with their family?', type: 'select', options: ['Very important to me', 'Somewhat important', 'Not important'] },
+      { id: 'familyInvolvement', text: 'How involved should your partner be with your family?', type: 'select', options: ['Very involved', 'Just for key events', 'Not much', 'Prefer to keep it separate'] },
+      { id: 'children', text: 'Do you want children?', type: 'select', options: ['Yes', 'Open to it', 'No'] },
+      { id: 'childrenPartner', text: 'Would you date someone who already has kids?', type: 'select', options: ['Yes', 'Maybe', 'No'] },
+      { id: 'marriage', text: 'Do you want to get married one day?', type: 'select', options: ['Yes', 'Open to it', 'No'] },
+      { id: 'relationshipPace', text: 'How quickly do you like a relationship to progress?', type: 'select', options: ['Slowly', 'Naturally', 'Fairly quickly'] },
+      { id: 'longDistance', text: 'Would you consider a long-distance relationship?', type: 'select', options: ['Yes', 'Only short term', 'No'] },
+      { id: 'relationshipTherapy', text: 'Would you try relationship coaching or therapy if needed?', type: 'select', options: ['Yes', 'Maybe', 'No'] },
+      { id: 'conflictStyle', text: 'How do you usually handle conflict?', type: 'select', options: ['Talk about it straight away', 'Take space, then talk', 'Avoid it', 'Try to understand first'] },
+      { id: 'conflictPartner', text: 'How do you want a partner to handle conflict?', type: 'select', options: ['Stay calm and talk', 'Give space, then return', 'Reassure first', 'Keep it light'] },
+      { id: 'decisionMaking', text: 'How do you prefer decisions to be made in a relationship?', type: 'select', options: ['Together', 'A mix', 'I lead', 'Partner leads'] },
+      { id: 'independence', text: 'How much independence do you want in a relationship?', type: 'select', options: ['A lot – I need my own space', 'A balance', 'I like doing most things together'] },
+      { id: 'livingArrangement', text: 'What is your ideal living arrangement with a partner?', type: 'select', options: ['Living together full-time', 'Living together part-time', 'Separate homes but nearby', 'Open to what works best for both'] },
+      { id: 'humour', text: 'How would you describe your sense of humour?', type: 'select', options: ['Dry / sarcastic', 'Silly / goofy', 'Dark / edgy', 'Witty / clever', 'Playful teasing'] },
+      { id: 'stressHandling', text: 'How do you typically handle stress?', type: 'select', options: ['I need alone time', 'I talk it through with others', 'I use physical activity (e.g., gym, walking)', 'I use creative outlets (e.g., music, art, writing)', 'I practise meditation or mindfulness'] },
+      { id: 'decisionApproach', text: 'How do you typically make important decisions?', type: 'select', options: ['Logically – I analyse pros and cons', 'Based on gut feelings or emotion', 'I consult others for advice', 'I use a mix of logic and intuition'] },
+      { id: 'personalValues', text: 'What values are most important to you personally? (Select up to 3)', type: 'multiselect', options: ['Loyalty', 'Honesty', 'Ambition', 'Kindness', 'Family', 'Health & fitness', 'Adventurous / curious'] },
+      { id: 'partnerValues', text: 'What values are most important for your partner to have? (Select up to 3)', type: 'multiselect', options: ['Loyalty', 'Honesty', 'Ambition', 'Kindness', 'Family', 'Health & fitness', 'Adventurous / curious'] },
+      { id: 'otherValues', text: 'Are there any other values that matter to you in a relationship? (optional)', type: 'text', optional: true }
     ]
   },
   {
     id: 'personality',
     title: 'Emotional Intelligence',
     questions: [
-      { id: 'introExtro', text: 'Do you consider yourself more of an introvert or extrovert?', type: 'scale', min: 1, max: 5, minLabel: 'Complete introvert', maxLabel: 'Complete extrovert' },
-      { id: 'conflict', text: 'How do you typically handle conflict?', type: 'select', options: ['Avoid it', 'Address it calmly', 'Need time to process first', 'Direct confrontation'] },
-      { id: 'communication', text: 'How would you describe your communication style?', type: 'select', options: ['Reserved/private', 'Selective sharing', 'Open and direct', 'Very expressive'] },
-      { id: 'stress', text: 'How do you typically handle stress?', type: 'select', options: ['Need alone time', 'Talk it through with others', 'Physical activity', 'Creative outlets', 'Meditation/mindfulness'] },
-      { id: 'decision', text: 'How do you typically make important decisions?', type: 'select', options: ['Logical/analytical', 'Based on feelings', 'Consult others', 'Mix of logic and intuition'] },
-      { id: 'humor', text: 'How would you describe your sense of humor?', type: 'select', options: ['Dry/sarcastic', 'Silly/goofy', 'Dark/edgy', 'Witty/clever', 'Playful teasing'] },
+      { id: 'introExtro', text: 'Would you describe yourself more as:', type: 'select', options: ['Introverted – I recharge alone', 'Extroverted – I recharge around others', 'A mix of both (ambivert)'] },
+      { id: 'stress', text: 'How do you usually manage stress?', type: 'select', options: ['I need alone time', 'I talk it through with someone', 'I exercise or move my body', 'I get creative (music, writing, etc.)', 'I use mindfulness or meditation', 'I tend to shut down or avoid it'] },
+      { id: 'spontaneous', text: 'How spontaneous are you?', type: 'select', options: ['Very – I love last-minute plans', 'Somewhat – I enjoy surprises now and then', 'Not very – I prefer routine and planning'] },
+      { id: 'weekends', text: 'How do you usually spend your weekends?', type: 'select', options: ['Socialising or going out', 'Relaxing at home', 'Outdoors or staying active', 'Doing hobbies or creative projects', 'Running errands or catching up on rest'] },
+      { id: 'decision', text: 'When making big decisions, what guides you most?', type: 'select', options: ['Logic and facts', 'My feelings', 'I ask others for input', 'A mix of logic and instinct'] },
+      { id: 'recharge', text: 'How do you recharge after a long day or week?', type: 'select', options: ['Time alone', 'Quality time with people I love', 'Being outdoors or active', 'A good show/book/podcast', 'Sleep and rest'] },
+      { id: 'showEmotions', text: 'How do you usually show your emotions?', type: 'select', options: ['I express them openly', 'I hold them in until I\'m ready', 'I tend to downplay or mask them', 'I show them more through actions than words'] },
+      { id: 'respondEmotions', text: 'How do you usually respond to someone else\'s emotions?', type: 'select', options: ['I try to comfort and support them', 'I feel unsure of how to help', 'I listen and try to stay neutral', 'I give them space and check in later'] },
+      { id: 'personalGrowth', text: 'How do you handle your own personal growth?', type: 'select', options: ['I actively seek growth and self-awareness', 'I work on it when things get tough', 'I tend to avoid deep reflection', 'I\'m not sure where to start, but I\'m open'] },
+      { id: 'pastRelationships', text: 'Do you think your past relationships affect how you show up in new ones?', type: 'select', options: ['Yes, I\'ve learned a lot and grown', 'Yes, I have some habits or hesitations', 'A little, but I don\'t let the past define me', 'Not really'] },
+      { id: 'partnerTraits', text: 'What emotional traits are most important in a partner? (Select up to 3)', type: 'multiselect', options: ['Self-awareness', 'Empathy', 'Optimism', 'Patience', 'Strong communication', 'Affectionate nature'] },
+      { id: 'selfTraits', text: 'What emotional traits best describe you? (Select up to 3)', type: 'multiselect', options: ['Calm and grounded', 'Thoughtful and observant', 'Warm and affectionate', 'Driven and focused', 'Playful and expressive', 'Sensitive and reflective'] },
     ]
   },
   {
     id: 'loveLanguage',
     title: 'Love Language',
     questions: [
-      { id: 'giveAffection', text: 'How do you prefer to show affection?', type: 'select', options: ['Physical touch', 'Words of affirmation', 'Acts of service', 'Quality time', 'Giving gifts'] },
-      { id: 'receiveAffection', text: 'How do you prefer to receive affection?', type: 'select', options: ['Physical touch', 'Words of affirmation', 'Acts of service', 'Quality time', 'Receiving gifts'] },
-      { id: 'publicAffection', text: 'How comfortable are you with public displays of affection?', type: 'scale', min: 1, max: 5, minLabel: 'Not comfortable', maxLabel: 'Very comfortable' },
-      { id: 'romance', text: 'How important is romance to you?', type: 'scale', min: 1, max: 5, minLabel: 'Not important', maxLabel: 'Very important' },
-      { id: 'surprises', text: 'How do you feel about surprises?', type: 'select', options: ['Strongly dislike', 'Slightly uncomfortable', 'Neutral', 'Enjoy them', 'Love them'] },
+      { id: 'showLove', text: 'How do you usually show love or care to someone you\'re close to?', type: 'select', options: ['I do things for them (helping, errands, making life easier)', 'I give them gifts or thoughtful surprises', 'I say kind, encouraging, or loving things', 'I spend quality time with them', 'I give hugs, kisses, or hold their hand'] },
+      { id: 'feelLoved', text: 'How do you feel most loved by a partner?', type: 'select', options: ['When they do things to support me', 'When they surprise me with gifts or gestures', 'When they tell me how they feel about me', 'When we spend uninterrupted time together', 'When they are physically affectionate'] },
+      { id: 'physicalComfort', text: 'How comfortable are you with giving physical affection?', type: 'select', options: ['Very comfortable – it\'s natural for me', 'Somewhat comfortable – depends on the setting', 'I\'m a bit reserved, but I try', 'I prefer other ways of showing love'] },
+      { id: 'everydayAffection', text: 'How much affection do you like in everyday life (e.g., hugs, cuddles, hand-holding)?', type: 'select', options: ['A lot – I really enjoy physical closeness', 'A moderate amount – I like it but not constantly', 'A little – I\'m more low-key with affection', 'Very little – I prefer space'] },
+      { id: 'qualityTime', text: 'What does quality time in a relationship look like to you? (Select your top choice)', type: 'select', options: ['Deep conversations', 'Doing fun activities together', 'Being in the same space doing our own thing', 'Going on dates or trips', 'Uninterrupted time without phones or distractions'] },
+      { id: 'receiveCompliments', text: 'How do you prefer to receive compliments or appreciation?', type: 'select', options: ['In words – I like to hear it', 'In actions – showing me means more', 'In thoughtful gestures or surprises', 'In touch – a hug or hand on the back says a lot'] },
+      { id: 'expressLoveImportance', text: 'How important is it to you that your partner expresses love regularly?', type: 'select', options: ['Very important – I need regular signs of love', 'Important, but it doesn\'t have to be constant', 'A little important – I don\'t need much', 'Not very important – I show love more than I need to receive it'] },
+      { id: 'feelValued', text: 'In your own words, how do you feel most valued and loved in a relationship? (optional)', type: 'text', optional: true },
     ]
   },
   {
     id: 'attraction',
     title: 'Attraction',
     questions: [
-      { id: 'physicalAttraction', text: 'How important is physical attraction to you in a relationship?', type: 'scale', min: 1, max: 5, minLabel: 'Not important', maxLabel: 'Very important' },
-      { id: 'height', text: 'Do you have preferences regarding your partner\'s height?', type: 'select', options: ['No preference', 'Taller than me', 'Shorter than me', 'About the same height'] },
-      { id: 'bodyType', text: 'Do you have preferences regarding body type?', type: 'select', options: ['No preference', 'Slim/athletic', 'Average', 'Curvy/full-figured', 'Muscular'] },
-      { id: 'style', text: 'What type of personal style do you find most attractive?', type: 'select', options: ['Casual/relaxed', 'Professional/polished', 'Alternative/unique', 'Fashionable/trendy', 'No preference'] },
-      { id: 'grooming', text: 'How important is personal grooming to you?', type: 'scale', min: 1, max: 5, minLabel: 'Not important', maxLabel: 'Very important' },
+      { id: 'physicalAttraction', text: 'How important is physical attraction to you in a relationship?', type: 'select', options: ['Very important', 'Somewhat important', 'It\'s part of it, but not a priority', 'Not important'] },
+      { id: 'physicalAppearance', text: 'How would you describe your physical appearance?', type: 'select', options: ['Slim', 'Athletic', 'Average build', 'Curvy', 'Plus size', 'Tall', 'Petite'] },
+      { id: 'height', text: 'What is your height?', type: 'text' },
+      { id: 'ethnicBackground', text: 'What is your ethnic background?', type: 'select', options: ['Caucasian', 'Middle Eastern', 'South Asian (e.g., Indian, Pakistani, Sri Lankan)', 'East Asian (e.g., Chinese, Japanese, Korean)', 'Southeast Asian (e.g., Filipino, Thai, Vietnamese)', 'Māori / Pasifika', 'African', 'Indigenous Australian / Torres Strait Islander', 'Latin American / Hispanic', 'Mixed background', 'Other (please specify)'], showOtherInput: true },
+      { id: 'ethnicPreference', text: 'Do you have any preferences when it comes to a partner\'s ethnicity or cultural background?', type: 'select', options: ['No preference', 'Yes – I\'m open, but I do have a preference'], showOtherInput: true },
+      { id: 'tattoos', text: 'Do you have any tattoos?', type: 'select', options: ['Yes', 'No'] },
+      { id: 'piercings', text: 'Do you have any piercings?', type: 'select', options: ['Yes', 'No'] },
+      { id: 'cosmeticEnhancements', text: 'Have you had any cosmetic enhancements or procedures (e.g., injectables, surgery, body contouring)?', type: 'select', options: ['Yes', 'No'] },
+      { id: 'partnerCosmeticEnhancements', text: 'Would you be comfortable if your partner had cosmetic enhancements?', type: 'select', options: ['Yes, absolutely', 'I\'m open to it', 'I\'d prefer they didn\'t', 'No preference'] },
+      { id: 'personalStyle', text: 'How would you describe your personal style and grooming?', type: 'select', options: ['Casual and low-maintenance', 'Neat and polished', 'Trendy or fashion-forward', 'Practical and comfortable', 'Classic or timeless', 'Other (please specify)'], showOtherInput: true, optional: true },
+      { id: 'attractiveTraits', text: 'What physical traits do you tend to find attractive?', type: 'multiselect', options: ['Tall', 'Strong build', 'Lean/fit', 'Curvy', 'Petite', 'Natural look', 'Well-groomed', 'Unique features'] },
+      { id: 'partnerGrooming', text: 'How would you describe your ideal partner\'s grooming or style?', type: 'select', options: ['Well-groomed and polished', 'Casual and natural', 'Clean and simple', 'Stylish and expressive', 'I don\'t have a strong preference'] },
+      { id: 'heightPreference', text: 'What are your height preferences in a partner?', type: 'select', options: ['No preference', 'Prefer someone taller than me', 'Prefer someone shorter than me', 'Prefer similar height'] },
+      { id: 'partnerTattoos', text: 'How do you feel about tattoos on a partner?', type: 'select', options: ['I love them', 'I like them in moderation', 'Neutral – I don\'t mind either way', 'Prefer minimal or none'] },
+      { id: 'partnerPiercings', text: 'How do you feel about piercings on a partner?', type: 'select', options: ['I love them', 'I like them in moderation', 'Neutral – I don\'t mind either way', 'Prefer minimal or none'] },
+      { id: 'partnerCosmeticView', text: 'How do you feel about cosmetic enhancements on a partner?', type: 'select', options: ['Very open – it\'s a personal choice', 'I\'m okay with minor enhancements (e.g., injectables)', 'Prefer a natural appearance', 'No strong opinion'] },
     ]
   },
   {
     id: 'intimacy',
     title: 'Intimacy',
     questions: [
-      { id: 'sexImportance', text: 'How important is sexual compatibility in a relationship?', type: 'scale', min: 1, max: 5, minLabel: 'Not important', maxLabel: 'Very important' },
-      { id: 'sexFrequency', text: 'What is your ideal frequency of sexual intimacy?', type: 'select', options: ['Daily', 'Several times a week', 'Weekly', 'A few times a month', 'Monthly or less'] },
-      { id: 'sexOpenness', text: 'How open are you to trying new things sexually?', type: 'scale', min: 1, max: 5, minLabel: 'Not open', maxLabel: 'Very open' },
-      { id: 'sexCommunication', text: 'How comfortable are you discussing sexual preferences?', type: 'scale', min: 1, max: 5, minLabel: 'Not comfortable', maxLabel: 'Very comfortable' },
-      { id: 'nonSexualIntimacy', text: 'How important is non-sexual physical intimacy to you?', type: 'scale', min: 1, max: 5, minLabel: 'Not important', maxLabel: 'Very important' },
+      { id: 'sexImportance', text: 'How important is sex in a long-term relationship to you?', type: 'select', options: ['Very important', 'Somewhat important', 'It\'s not a major priority', 'Not important'] },
+      { id: 'sexFrequency', text: 'How often would you ideally like to be intimate with a partner?', type: 'select', options: ['Daily or almost daily', 'A few times per week', 'Weekly', 'A few times per month', 'Rarely'] },
+      { id: 'sexCommunication', text: 'How comfortable are you talking about intimacy and sexual needs with a partner?', type: 'select', options: ['Very comfortable', 'Comfortable once there\'s trust', 'It takes me a while', 'I struggle to talk about it'] },
+      { id: 'sexOpenness', text: 'Are you open to exploring new things in the bedroom?', type: 'select', options: ['Yes, I enjoy trying new things', 'Somewhat – with the right person', 'I prefer to keep things familiar', 'No, I\'m not comfortable with that'] },
+      { id: 'libido', text: 'How would you describe your sexual energy level (libido)?', type: 'select', options: ['High', 'Moderate', 'Low', 'Unsure'] },
+      { id: 'spontaneity', text: 'Do you prefer intimacy to be more spontaneous or planned?', type: 'select', options: ['Spontaneous – in the moment', 'A mix of both', 'Mostly planned or scheduled'] },
+      { id: 'foreplay', text: 'How important is foreplay to you?', type: 'select', options: ['Very important', 'Somewhat important', 'Not that important'] },
+      { id: 'dominance', text: 'Do you have any preferences around dominance or control in the bedroom?', type: 'select', options: ['I prefer to take the lead', 'I prefer my partner to take the lead', 'I like a balance', 'I don\'t have a preference'] },
+      { id: 'verbalCommunication', text: 'How do you feel about verbal communication during intimacy (e.g., talking, encouragement, check-ins)?', type: 'select', options: ['I like it and find it important', 'I\'m okay with some talking', 'I prefer minimal talking', 'I don\'t like it'] },
+      { id: 'variety', text: 'How important is variety and creativity in your intimate life?', type: 'select', options: ['Very important – I enjoy mixing things up', 'Somewhat important – I like some variety', 'Not important – I prefer routine and consistency'] },
+      { id: 'afterIntimacy', text: 'After intimacy, what helps you feel most connected?', type: 'select', options: ['Cuddling or physical closeness', 'Verbal reassurance or compliments', 'Quiet time together', 'Space and alone time'] },
+      { id: 'exclusivity', text: 'Would you expect sexual exclusivity in a relationship?', type: 'select', options: ['Yes – always exclusive', 'Yes – unless discussed otherwise', 'No – I\'m open to non-exclusive dynamics'] },
+      { id: 'differentDrives', text: 'How would you feel if you and your partner had different sex drives?', type: 'select', options: ['I\'d be okay as long as we communicate', 'It could be challenging but manageable', 'It would be a dealbreaker'] },
+      { id: 'emotionalConnection', text: 'Do you feel that sex strengthens your emotional connection?', type: 'select', options: ['Yes – it\'s deeply emotional for me', 'Sometimes – depends on the relationship', 'No – I see it as separate from emotions'] },
+      { id: 'intimacyBoundaries', text: 'Are there any boundaries, preferences, or things that are important to you when it comes to intimacy? (optional)', type: 'text', optional: true },
     ]
   },
   {
@@ -97,7 +170,7 @@ const SECTIONS = [
 ];
 
 // Maximum questions per page
-const MAX_QUESTIONS_PER_PAGE = 5;
+const MAX_QUESTIONS_PER_PAGE = 6;
 
 export default function Questionnaire() {
   const auth: AuthContextType = useAuth();
@@ -105,6 +178,7 @@ export default function Questionnaire() {
   const [isLoading, setIsLoading] = useState(true);
   const [currentSection, setCurrentSection] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
+  const [otherInputs, setOtherInputs] = useState<{[key: string]: string}>({});
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [progress, setProgress] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -147,9 +221,13 @@ export default function Questionnaire() {
     // Check which sections are complete
     const completed: Record<string, boolean> = {};
     SECTIONS.forEach(section => {
+      // For simplicity, consider a section complete if at least 80% of its questions are answered
       const sectionQuestions = section.questions.map(q => `${section.id}_${q.id}`);
-      const answeredSectionQuestions = sectionQuestions.filter(id => answers[id] !== undefined);
-      completed[section.id] = answeredSectionQuestions.length === sectionQuestions.length;
+      const answeredQuestions = sectionQuestions.filter(id => answers[id] !== undefined);
+      
+      // Mark as complete if at least 80% of questions are answered
+      const completionThreshold = 0.8;
+      completed[section.id] = answeredQuestions.length >= Math.ceil(sectionQuestions.length * completionThreshold);
     });
     setCompletedSections(completed);
   }, [answers]);
@@ -165,9 +243,59 @@ export default function Questionnaire() {
   const currentQuestions = currentSectionData.questions.slice(startIdx, endIdx);
 
   const handleAnswer = (questionId: string, value: any) => {
+    const answerId = `${currentSectionData.id}_${questionId}`;
+    
+    // Clear other input if selecting a different option
+    if (typeof value === 'string' && !value.includes('Other') && typeof answers[answerId] === 'string' && answers[answerId]?.includes('Other')) {
+      setOtherInputs(prev => {
+        const newInputs = {...prev};
+        delete newInputs[answerId];
+        return newInputs;
+      });
+    }
+    
     setAnswers(prev => ({
       ...prev,
-      [`${currentSectionData.id}_${questionId}`]: value
+      [answerId]: value
+    }));
+  };
+  
+  const handleMultiselect = (questionId: string, value: string) => {
+    const answerId = `${currentSectionData.id}_${questionId}`;
+    const currentValues = answers[answerId] || [];
+    
+    let newValues;
+    if (currentValues.includes(value)) {
+      // Remove the value if already selected
+      newValues = currentValues.filter((v: string) => v !== value);
+    } else {
+      // Add the value if not already selected (up to 3)
+      if (currentValues.length < 3) {
+        newValues = [...currentValues, value];
+      } else {
+        // Already have 3 selected, don't add more
+        return;
+      }
+    }
+    
+    setAnswers(prev => ({
+      ...prev,
+      [answerId]: newValues
+    }));
+  };
+  
+  const handleOtherInput = (questionId: string, value: string) => {
+    const answerId = `${currentSectionData.id}_${questionId}`;
+    setOtherInputs(prev => ({
+      ...prev,
+      [answerId]: value
+    }));
+    
+    // Update the main answer to include the other text
+    const baseAnswer = typeof answers[answerId] === 'string' ? answers[answerId].split(' - ')[0] : answers[answerId];
+    setAnswers(prev => ({
+      ...prev,
+      [answerId]: value ? `${baseAnswer} - ${value}` : baseAnswer
     }));
   };
 
@@ -225,47 +353,84 @@ export default function Questionnaire() {
   const renderQuestion = (question: any) => {
     const answerId = `${currentSectionData.id}_${question.id}`;
     const currentAnswer = answers[answerId] || '';
+    
+    // Check if this is a conditional question and should be shown
+    if (question.conditionalOn) {
+      const parentQuestionId = `${currentSectionData.id}_${question.conditionalOn.questionId}`;
+      const parentAnswer = answers[parentQuestionId] || '';
+      
+      // If the condition is not met, don't render this question
+      if (parentAnswer !== question.conditionalOn.value) {
+        return null;
+      }
+    }
 
     switch (question.type) {
       case 'text':
         return (
           <div className="mb-6">
-            <label className={`block text-white mb-6 ${inter.className}`}>{question.text}</label>
+            <label className={`block text-white mb-6 text-base md:text-lg ${inter.className} group-hover:text-[#3B00CC] transition-colors duration-300 font-medium`}>{question.text}</label>
             <input
               type="text"
               value={currentAnswer}
               onChange={(e) => handleAnswer(question.id, e.target.value)}
-              className={`w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-purple-400 ${inter.className}`}
+              className={`w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-[#34D8F1] ${inter.className}`}
             />
           </div>
         );
       
       case 'select':
+        const answerId = `${currentSectionData.id}_${question.id}`;
+        const showOtherInput = question.showOtherInput && typeof currentAnswer === 'string' && 
+          (currentAnswer.includes('Other') || 
+           (question.id === 'ethnicPreference' && currentAnswer.includes('Yes')));
+        const otherValue = otherInputs[answerId] || '';
+        
         return (
           <div className="mb-6">
-            <label className={`block text-white mb-6 ${inter.className}`}>{question.text}</label>
-            <div className="flex flex-wrap gap-3 mt-6">
-              {question.options.map((option: string) => (
-                <button
-                  key={option}
-                  onClick={() => handleAnswer(question.id, option)}
-                  className={`w-48 whitespace-nowrap px-4 py-2 rounded-full backdrop-blur-sm transition-all duration-200 text-center ${inter.className} ${
-                    currentAnswer === option
-                      ? 'bg-[#73FFF6] text-purple-900 border border-[#73FFF6]'
-                      : 'bg-white/10 text-white border border-white/30 hover:bg-white/20'
-                  }`}
-                >
-                  {option}
-                </button>
-              ))}
+            <label className={`block text-white mb-6 text-base md:text-lg ${inter.className} group-hover:text-[#3B00CC] transition-colors duration-300 font-medium`}>{question.text}</label>
+            <div className="flex flex-wrap justify-center gap-6 mt-6">
+              {question.options.map((option: string) => {
+                // For selected "Other" option, show the custom text if available
+                const displayText = option.includes('Other') && typeof currentAnswer === 'string' && currentAnswer === option && otherValue 
+                  ? `Other - ${otherValue}` 
+                  : option;
+                  
+                return (
+                  <button
+                    key={option}
+                    onClick={() => handleAnswer(question.id, option)}
+                    className={`w-40 h-40 text-sm font-medium p-5 whitespace-normal rounded-full backdrop-blur-sm transition-all duration-300 flex items-center justify-center overflow-hidden shadow-md ${inter.className} ${
+                      currentAnswer === option
+                        ? 'bg-[#73FFF6] text-[#3B00CC] border-2 border-[#73FFF6] shadow-lg shadow-[#73FFF6]/30'
+                        : 'bg-white/10 text-white border border-white/30 hover:bg-white/20 hover:scale-105'
+                    }`}
+                  >
+                    {displayText}
+                  </button>
+                );
+              })}
             </div>
+            
+            {showOtherInput && (
+              <div className="mt-4 max-w-md mx-auto">
+                <input
+                  type="text"
+                  value={otherValue}
+                  onChange={(e) => handleOtherInput(question.id, e.target.value)}
+                  placeholder="Please specify..."
+                  className={`w-full p-3 rounded-lg bg-white/10 border border-[#73FFF6] text-white focus:outline-none focus:ring-2 focus:ring-[#73FFF6] ${inter.className}`}
+                  autoFocus
+                />
+              </div>
+            )}
           </div>
         );
       
       case 'scale':
         return (
           <div className="mb-6">
-            <label className={`block text-white mb-6 ${inter.className}`}>{question.text}</label>
+            <label className={`block text-white mb-6 text-base md:text-lg ${inter.className} group-hover:text-[#3B00CC] transition-colors duration-300 font-medium`}>{question.text}</label>
             <div className="flex flex-col space-y-2">
               <div className={`flex justify-between text-white/70 text-sm ${inter.className}`}>
                 <span>{question.minLabel}</span>
@@ -280,7 +445,7 @@ export default function Questionnaire() {
                       onClick={() => handleAnswer(question.id, value)}
                       className={`flex-1 h-10 rounded-md transition-colors ${inter.className} ${
                         currentAnswer === value
-                          ? 'bg-[#73FFF6] text-purple-900'
+                          ? 'bg-[#73FFF6] text-[#3B00CC]'
                           : 'bg-white/10 text-white hover:bg-white/20'
                       }`}
                     >
@@ -293,6 +458,40 @@ export default function Questionnaire() {
           </div>
         );
       
+      case 'multiselect':
+        const multiValues = Array.isArray(currentAnswer) ? currentAnswer : [];
+        const selectedCount = multiValues.length;
+        
+        return (
+          <div className="mb-6">
+            <label className={`block text-white mb-6 text-base md:text-lg ${inter.className} group-hover:text-[#3B00CC] transition-colors duration-300 font-medium`}>{question.text}</label>
+            {selectedCount > 0 && (
+              <p className={`text-white/70 text-sm mb-4 ${inter.className}`}>
+                {selectedCount}/3 selected
+              </p>
+            )}
+            <div className="flex flex-wrap justify-center gap-6 mt-6">
+              {question.options.map((option: string) => {
+                const isSelected = multiValues.includes(option);
+                return (
+                  <button
+                    key={option}
+                    onClick={() => handleMultiselect(question.id, option)}
+                    className={`w-40 h-40 text-sm font-medium p-5 whitespace-normal rounded-full backdrop-blur-sm transition-all duration-300 flex items-center justify-center overflow-hidden shadow-md ${inter.className} ${
+                      isSelected
+                        ? 'bg-[#73FFF6] text-[#3B00CC] border-2 border-[#73FFF6] shadow-lg shadow-[#73FFF6]/30'
+                        : 'bg-white/10 text-white border border-white/30 hover:bg-white/20 hover:scale-105'
+                    }`}
+                    disabled={selectedCount >= 3 && !isSelected}
+                  >
+                    {option}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      
       default:
         return null;
     }
@@ -300,107 +499,63 @@ export default function Questionnaire() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-blue-900 flex flex-col">
-        {/* Main Content Area */}
-        <main className="flex-1 relative overflow-hidden flex flex-col lg:flex-row">
-          {/* Background Elements */}
-          <div className="absolute inset-0">
-            {/* Background Gradient - removing white/light colors */}
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-800 to-purple-900" />
-            <div className="absolute inset-0">
-              <OrbField />
-            </div>
-            {/* Add large purple orb in the sidebar area */}
-            <div className="absolute top-0 left-0 lg:w-64 xl:w-72 h-full overflow-hidden pointer-events-none">
-              <div className="absolute -left-1/2 top-1/2 w-[500px] h-[500px] rounded-full opacity-70 blur-[60px]" 
-                style={{
-                  background: 'radial-gradient(circle, rgba(88, 28, 135, 0.9) 0%, rgba(88, 28, 135, 0.6) 40%, rgba(88, 28, 135, 0.3) 80%)',
-                  transform: 'translateY(-50%)',
-                }}>
-              </div>
-            </div>
+      <div className="relative min-h-screen w-full overflow-x-hidden flex flex-col">
+        {/* Background container with fixed position to cover entire viewport */}
+        <div className="fixed inset-0 w-full h-full" style={{ background: 'linear-gradient(to bottom right, #2800A3, #34D8F1)', zIndex: -10 }}>
+          <div className="absolute inset-0 bg-gradient-to-br from-[#34D8F1]/20 via-transparent to-[#34D8F1]/20" />
+          <div className="absolute inset-0 overflow-hidden">
+            <OrbField />
           </div>
-          {/* Sidebar for loading state */}
-          <div className="relative z-10 w-full lg:w-64 xl:w-72 bg-transparent backdrop-blur-md border-r border-blue-100/30 overflow-y-auto hidden lg:block">
-            <div className="p-6">
-              {/* Logo */}
-              <div className="flex justify-center mb-8">
-                <Image
-                  src="/vettly-logo.png"
-                  alt="Vettly Logo"
-                  width={150}
-                  height={40}
-                  className="h-auto w-auto sm:w-[120px] w-[160px] mb-6"
-                  priority
-                />
-              </div>
-              {/* Loading indicator for sidebar */}
-              <div className="flex justify-center mt-8">
-                <div className="w-8 h-8 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-              </div>
-            </div>
+        </div>
+        {/* Loading Content */}
+        <div className="relative z-10 flex items-center justify-center h-screen w-full">
+          <div className="flex flex-col items-center">
+            <Image
+              src="/vettly-logo.png"
+              alt="Vettly Logo"
+              width={180}
+              height={45}
+              className="h-auto w-auto mb-8"
+              priority
+            />
+            <div className="w-16 h-16 border-4 border-[#34D8F1] border-t-transparent rounded-full animate-spin"></div>
+            <p className="mt-4 text-white font-medium">Loading your questionnaire...</p>
           </div>
-          {/* Loading Content */}
-          <div className="relative z-10 min-h-screen flex items-center justify-center">
-            <div className="p-8 rounded-lg bg-white/30 backdrop-blur-md">
-              <div className="flex flex-col items-center">
-                <Image
-                  src="/vettly-logo.png"
-                  alt="Vettly Logo"
-                  width={200}
-                  height={60}
-                  className="h-auto w-auto sm:w-[160px] w-[200px] mb-6"
-                  priority
-                />
-                <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-                <p className="mt-4 text-cyan-900 font-medium">Loading your questionnaire...</p>
-              </div>
-            </div>
-          </div>
-        </main>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-blue-900 flex flex-col">
-      {/* Main Content Area */}
-      <main className="flex-1 relative overflow-hidden flex flex-col lg:flex-row">
-        {/* Background Elements */}
-        <div className="absolute inset-0">
-          {/* Background Gradient */}
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-900 via-blue-800 to-purple-900" />
-          <div className="absolute inset-0">
-            <OrbField />
-          </div>
-            {/* Add large purple orb in the sidebar area */}
-            <div className="absolute top-0 left-0 lg:w-64 xl:w-72 h-full overflow-hidden pointer-events-none">
-              <div className="absolute -left-1/2 top-1/2 w-[500px] h-[500px] rounded-full opacity-70 blur-[60px]" 
-                style={{
-                  background: 'radial-gradient(circle, rgba(88, 28, 135, 0.9) 0%, rgba(88, 28, 135, 0.6) 40%, rgba(88, 28, 135, 0.3) 80%)',
-                  transform: 'translateY(-50%)',
-                }}>
-              </div>
-            </div>
+    <div className="relative min-h-screen w-full overflow-x-hidden flex flex-col lg:flex-row">
+      {/* Background container with fixed position to cover entire viewport */}
+      <div className="fixed inset-0 w-full h-full" style={{ background: 'linear-gradient(to bottom right, #2800A3, #34D8F1)', zIndex: -10 }}>
+        <div className="absolute inset-0 bg-gradient-to-br from-[#34D8F1]/20 via-transparent to-[#34D8F1]/20" />
+        <div className="absolute inset-0 overflow-hidden">
+          <OrbField />
         </div>
+      </div>
+      {/* Main Content Area */}
+      <main className="flex-1 relative z-10 overflow-hidden flex flex-col lg:flex-row">
 
         {/* Sidebar */}
-        <div className="relative z-20 w-full lg:w-64 xl:w-72 bg-transparent backdrop-blur-md border-r border-blue-100/30 overflow-y-auto hidden lg:block">
+        <div className="relative z-20 w-full lg:w-48 xl:w-52 bg-transparent backdrop-blur-sm border-r border-white/10 overflow-y-auto hidden lg:block">
           <div className="p-6">
             {/* Logo */}
-            <div className="flex justify-center mb-8">
+            <div className="flex flex-col items-center mb-8">
               <Image
                 src="/vettly-logo.png"
                 alt="Vettly Logo"
-                width={120}
-                height={32}
+                width={100}
+                height={25}
                 className="h-auto w-auto"
                 priority
               />
+
             </div>
             
             {/* Section Navigation */}
-            <div className="space-y-1">
+            <div className="space-y-3">
               {SECTIONS.map((section, index) => {
                 const isComplete = completedSections[section.id];
                 const isActive = currentSection === index;
@@ -412,27 +567,38 @@ export default function Questionnaire() {
                       setCurrentSection(index);
                       setCurrentPage(0);
                     }}
-                    className={`w-full text-left p-3 rounded-lg flex items-center justify-between transition-all duration-200 ${
+                    className={`w-full text-left p-3 rounded-lg flex items-center transition-all duration-200 ${
                       isActive 
                         ? 'bg-white/20 text-white' 
                         : 'text-white hover:bg-white/10'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center border-2 ${
-                        isComplete 
-                          ? 'bg-[#5EFAD7] border-[#5EFAD7]' 
-                          : isActive 
-                            ? 'bg-white/20 border-white/40' 
-                            : 'bg-white/10 border-white/20'
-                      }`}>
+                      <div 
+                        className={`rounded-full flex items-center justify-center border-2 ${
+                          isComplete 
+                            ? 'bg-[#5EFAD7] border-[#5EFAD7]' 
+                            : isActive 
+                              ? 'bg-white/20 border-white/40' 
+                              : 'bg-white/10 border-white/20'
+                        }`} 
+                        style={{ 
+                          width: '28px', 
+                          height: '28px', 
+                          minWidth: '28px', 
+                          minHeight: '28px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
                         {isComplete && (
-                          <svg className="w-3 h-3 text-[#4A1D96]" viewBox="0 0 24 24" fill="currentColor">
+                          <svg className="w-4 h-4 text-[#4A1D96]" viewBox="0 0 24 24" fill="currentColor">
                             <path fillRule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z" clipRule="evenodd" />
                           </svg>
                         )}
                       </div>
-                      <span className={`text-sm ${inter.className} text-white`}>{section.title}</span>
+                      <span className={`text-sm ${inter.className} text-white font-medium leading-tight`}>{section.title}</span>
                     </div>
                   </button>
                 );
@@ -449,21 +615,19 @@ export default function Questionnaire() {
               <Image
                 src="/vettly-logo.png"
                 alt="Vettly Logo"
-                width={120}
-                height={32}
-                className="h-auto w-auto sm:w-[120px] w-[150px]"
+                width={100}
+                height={25}
+                className="h-auto w-auto"
                 priority
               />
-              <p className="text-[#73FFF6] tracking-[0.25em] text-xs font-light mt-4">
-                POWERED BY PEOPLE, PERFECTED BY TECH
-              </p>
+
             </div>
 
             {/* Back Button - Mobile */}
             <div className="flex justify-start mb-4 px-4 lg:hidden">
               <button 
                 onClick={() => router.push('/dashboard')}
-                className="text-white hover:text-purple-300 transition-colors"
+                className={`text-white hover:text-[#73FFF6] transition-colors ${inter.className}`}
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -472,18 +636,15 @@ export default function Questionnaire() {
             </div>
 
             {/* Progress Bar */}
-            <div className="w-full max-w-7xl mx-auto px-4 md:px-8 mb-8">
-              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border-2 border-white/20">
+            <div className="w-full max-w-[1800px] mx-auto px-2 md:px-4 mb-8">
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl text-white">Your Progress</h3>
-                  <span className="text-purple-400 text-sm">
-                    {currentSection + 1} <span className="mx-1">of</span> {SECTIONS.length}
-                  </span>
+                  <h3 className={`text-xl text-white ${inter.className}`}>Your Progress</h3>
                 </div>
                 {/* Progress Bar */}
                 <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
                   <div 
-                    className="absolute left-0 top-0 h-full bg-gradient-to-r from-[#73FFF6] to-[#4A1D96]"
+                    className="absolute left-0 top-0 h-full !bg-gradient-to-r !from-[#73FFF6] !to-[#3B00CC]"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -491,20 +652,17 @@ export default function Questionnaire() {
             </div>
 
             {/* Questionnaire Content */}
-            <div className="w-full max-w-7xl mx-auto px-4 md:px-8">
-              <div className="bg-white/20 backdrop-blur-md rounded-2xl p-6 border-2 border-white/20 mb-8">
-                <div className="flex items-center justify-between mb-8">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-3xl md:text-4xl text-white font-bold">{currentSectionData.title}</h3>
-                  </div>
-                  <div className="text-white text-sm">
-                    Page {currentPage + 1} <span className="mx-1">of</span> {totalPagesInSection}
+            <div className="w-full max-w-[1800px] mx-auto px-2 md:px-4">
+              <div className="bg-white/20 backdrop-blur-md rounded-2xl p-6 mb-8">
+                <div className="flex items-center mb-8">
+                  <div className="flex items-center">
+                    <h3 className={`text-4xl md:text-5xl text-white font-bold ${playfair.className}`}>{currentSectionData.title}</h3>
                   </div>
                 </div>
                 {/* Questions - 2 Column Layout for Desktop */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 w-full">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 w-full">
                   {currentQuestions.map((question) => (
-                    <div key={question.id} className="p-4 md:p-6 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 transition-all duration-300 border border-white/20">
+                    <div key={question.id} className="group relative p-4 md:p-6 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300">
                       {renderQuestion(question)}
                     </div>
                   ))}
@@ -522,21 +680,20 @@ export default function Questionnaire() {
                   <PulseButton
                     onClick={handleNext}
                     disabled={saving}
-                    className="!bg-[#73FFF6] !py-2 !px-4 md:!py-3 md:!px-20"
-                    style={{color: "#4A1D96"}}
+                    className="!bg-[#73FFF6] !py-2 !px-4 md:!py-3 md:!px-20 !text-[#3B00CC] hover:!bg-[#73FFF6]/90"
                   >
                     {saving ? (
                       <>
-                        <svg className="animate-spin h-5 w-5 text-purple-900" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <span style={{color: "#4A1D96"}}>Saving...</span>
+                        <span>Saving...</span>
                       </>
                     ) : currentSection === SECTIONS.length - 1 && currentPage === totalPagesInSection - 1 ? (
-                      <span style={{color: "#4A1D96"}}>Complete</span>
+                      <span>Complete</span>
                     ) : (
-                      <span style={{color: "#4A1D96"}}>Next</span>
+                      <span>Next</span>
                     )}
                   </PulseButton>
                 </div>
@@ -547,7 +704,7 @@ export default function Questionnaire() {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-purple-500/30 backdrop-blur-md border-t border-white/20 z-20 lg:hidden">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/10 backdrop-blur-md border-t border-white/10 z-20 lg:hidden">
         <div className="overflow-x-auto py-3 px-4">
           <div className="flex space-x-3 min-w-max">
             {SECTIONS.map((section, index) => {
@@ -563,24 +720,24 @@ export default function Questionnaire() {
                   }}
                   className={`px-3 py-2 rounded-lg flex flex-col items-center justify-center transition-all duration-200 min-w-[80px] ${
                     isActive 
-                      ? 'bg-purple-500/40 text-white' 
-                      : 'text-white hover:bg-purple-500/30'
+                      ? 'bg-white/20 text-white' 
+                      : 'text-white hover:bg-white/10'
                   }`}
                 >
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center border-2 ${
                     isComplete 
-                      ? 'bg-[#5EFAD7] border-[#5EFAD7]' 
+                      ? 'bg-[#73FFF6] border-[#73FFF6]' 
                       : isActive 
                         ? 'bg-white/20 border-white' 
                         : 'bg-white/10 border-white/50'
                   }`}>
                     {isComplete && (
-                      <svg className="w-3 h-3 text-[#4A1D96]" viewBox="0 0 24 24" fill="currentColor">
+                      <svg className="w-3 h-3 text-[#3B00CC]" viewBox="0 0 24 24" fill="currentColor">
                         <path fillRule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z" clipRule="evenodd" />
                       </svg>
                     )}
                   </div>
-                  <span className={`text-sm ${inter.className}`}>{section.title}</span>
+                  <span className={`text-sm font-medium ${inter.className}`}>{section.title}</span>
                 </button>
               );
             })}
