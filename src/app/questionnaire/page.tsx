@@ -28,6 +28,7 @@ const SECTIONS = [
       { id: 'healthApproach', text: 'How would you describe your approach to health and wellness?', type: 'select', options: ['I don\'t prioritise it at the moment', 'I try to be mindful but not strict', 'I make conscious decisions most of the time', 'Health is a top priority in my daily life'] },
       { id: 'travelFrequency', text: 'How often do you currently travel (domestically or internationally)?', type: 'select', options: ['Rarely or never', 'Once or twice a year', 'Every few months', 'Frequently (monthly or more)'] },
       { id: 'travelFlexibility', text: 'How flexible is your schedule when it comes to spontaneous travel?', type: 'select', options: ['Not at all – my schedule is fixed', 'Somewhat flexible – I can plan in advance', 'Very flexible – I can leave with short notice'] },
+      { id: 'maxTravelDistance', text: 'How far would you be willing to travel to meet a potential match?', type: 'select', options: ['Up to 10 km', '10-25 km', '25-50 km', '50-100 km', 'Over 100 km', 'Distance is not a factor for me'] },
       { id: 'relocation', text: 'Would you consider relocating for the right person or relationship?', type: 'select', options: ['No, I\'m settled and not open to moving', 'Possibly, depending on the location and stage of relationship', 'Yes, I\'m open to relocating in future'] },
       { id: 'alternativeTherapies', text: 'How do you feel about natural or alternative therapies (e.g., acupuncture, energy healing, naturopathy)?', type: 'select', options: ['I use them regularly or believe strongly in them', 'I\'m open-minded but don\'t use them myself', 'I\'m neutral or unsure', 'I don\'t believe in them and prefer traditional medicine'] },
       { id: 'vaccinations', text: 'Which statement best matches your views on vaccinations?', type: 'select', options: ['I follow recommended vaccination schedules for myself and family', 'I choose selectively based on my own research', 'I\'m generally unsure or neutral', 'I avoid vaccinations whenever possible'] },
@@ -36,6 +37,7 @@ const SECTIONS = [
       { id: 'education', text: 'What\'s your highest level of education completed?', type: 'select', options: ['High school', 'Trade or vocational qualification', 'University – Bachelor\'s degree', 'Postgraduate (Master\'s, PhD, etc.)', 'Other (please specify)'] },
       { id: 'educationPartner', text: 'Is your partner\'s level of education important to you?', type: 'select', options: ['Not important', 'Somewhat important', 'Very important'] },
       { id: 'profession', text: 'What is your profession?', type: 'text' },
+      { id: 'income', text: 'What is your income per annum?', type: 'text' },
       { id: 'workHoursPerWeek', text: 'On average, how many hours do you work per week?', type: 'select', options: ['Under 20 hours', '20–30 hours', '30–40 hours', '40–50 hours', 'Over 50 hours'] },
       { id: 'workSchedule', text: 'What are your usual work hours?', type: 'select', options: ['Mostly weekdays, 9–5', 'Shift work (e.g., nights or weekends)', 'Flexible or remote hours', 'Varies week to week'] },
       { id: 'workTravel', text: 'Do you travel for work?', type: 'select', options: ['No, not at all', 'Occasionally (a few times a year)', 'Regularly (monthly or more)'] },
@@ -48,6 +50,16 @@ const SECTIONS = [
       { id: 'financialExpectations', text: 'What best describes your financial expectations in a relationship?', type: 'select', options: ['I\'m happy to contribute equally', 'I\'d prefer to be financially supported', 'I\'d prefer to support my partner financially', 'I\'d prefer we each contribute in a way that reflects our incomes', 'Open to discussion based on the relationship'] },
       { id: 'householdResponsibilities', text: 'Which best describes your view on household responsibilities?', type: 'select', options: ['I prefer traditional roles (e.g., one person cooks, the other earns)', 'I believe roles should be shared equally', 'I prefer to do more of one side (e.g., cooking, cleaning, finances)', 'I\'m open to discussing roles based on individual strengths and time'] },
       { id: 'workLifeBalance', text: 'How do you feel about your current work-life balance?', type: 'select', options: ['I\'m mostly focused on work', 'I try to keep a balance but it\'s hard', 'I feel like I\'ve found a good rhythm', 'I prioritise lifestyle over work'] },
+
+      { id: 'hobbiesTypes', text: 'What types of activities do you enjoy in your free time? (Select up to 5)', type: 'multiselect', options: ['Reading & literature', 'Movies & TV shows', 'Music (listening or playing)', 'Visual arts & crafts', 'Cooking & culinary exploration', 'Outdoor adventures (hiking, camping)', 'Sports & fitness', 'Gaming (video games, board games)', 'Travel & exploring new places', 'Wining & dining', 'Learning & personal development', 'Home improvement & DIY', 'Gardening & plants', 'Collecting (art, antiques, etc.)', 'Mindfulness & meditation', 'Dancing & performance arts', 'Volunteering & community service', 'Writing & journaling', 'Photography'] },
+
+      { id: 'hobbiesSocial', text: 'Do you prefer to enjoy your hobbies and interests:', type: 'select', options: ['Mostly alone or independently', 'Mostly with others in a social setting', 'A mix of both solo and social activities', 'With just one or two close people', 'In organized groups or communities'] },
+
+      { id: 'hobbiesDetail', text: 'Tell us more about your specific interests, hobbies, or passions that make you unique: (optional)', type: 'text', optional: true },
+
+      { id: 'hobbiesSharing', text: 'How important is it that your partner shares your interests and hobbies?', type: 'select', options: ['Very important - I want to share most activities', 'Somewhat important - I\'d like to share some key interests', 'Nice but not essential - I value having some separate interests', 'Not important - I prefer having mostly separate hobbies'] },
+
+      { id: 'hobbiesOpenness', text: 'How open are you to trying new activities that your partner enjoys?', type: 'select', options: ['Very open - I love experiencing new things', 'Somewhat open - I\'ll try things that seem interesting to me', 'Selective - I prefer sticking to activities I know I enjoy', 'Not very open - I have established interests I prefer to focus on'] },
 
     ]
   },
