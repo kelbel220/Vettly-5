@@ -356,12 +356,42 @@ export default function Questionnaire() {
     setSaving(true);
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
-      await updateDoc(userRef, {
+      
+      // Base update data
+      const updateData: Record<string, any> = {
         questionnaireAnswers: answers,
         completedSections: completedSections,
         questionnaireCompleted: isComplete,
         questionnaireLastUpdated: new Date().toISOString()
-      });
+      };
+      
+      // If the questionnaire is complete, generate a summary using ChatGPT
+      if (isComplete) {
+        try {
+          const response = await fetch('/api/generate-summary', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ questionnaireAnswers: answers })
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.summary) {
+              // Add the summary to the update data
+              updateData.personalSummary = data.summary;
+            }
+          } else {
+            console.error('Failed to generate summary:', await response.text());
+          }
+        } catch (error) {
+          console.error('Error generating summary:', error);
+          // Continue with the save even if summary generation fails
+        }
+      }
+      
+      await updateDoc(userRef, updateData);
     } catch (error) {
       console.error('Error saving questionnaire progress:', error);
     } finally {
