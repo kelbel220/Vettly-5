@@ -1,0 +1,497 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { inter, playfair } from '@/app/fonts';
+import { OrbField } from '@/app/components/gradients/OrbField';
+import { HomeOrbField } from '@/app/components/gradients/HomeOrbField';
+import { useAuth } from '@/context/AuthContext';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase-init';
+
+interface UserProfile {
+  firstName: string;
+  lastName: string;
+  profilePhotoUrl: string;
+  fullBodyPhotoUrl?: string;
+  stylePhotoUrl?: string;
+  hobbyPhotoUrl?: string;
+  personalSummary?: string;
+  questionnaireAnswers?: Record<string, any>;
+  questionnaireCompleted?: boolean;
+  dob?: string;
+  suburb?: string;
+  state?: string;
+  age?: number;
+  location?: string;
+  relationshipStatus?: string;
+  children?: string;
+  height?: string;
+  smokingStatus?: string;
+  drinkingHabits?: string;
+  profession?: string;
+  interests?: string[];
+}
+
+function Profile() {
+  const router = useRouter();
+  const { currentUser } = useAuth();
+  const [userData, setUserData] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (currentUser) {
+        try {
+          const userRef = doc(db, 'users', currentUser.uid);
+          const userSnap = await getDoc(userRef);
+          
+          if (userSnap.exists()) {
+            const data = userSnap.data() as UserProfile;
+            
+            // Calculate age from DOB if available
+            if (data.dob) {
+              const dobDate = new Date(data.dob);
+              const today = new Date();
+              let age = today.getFullYear() - dobDate.getFullYear();
+              const monthDiff = today.getMonth() - dobDate.getMonth();
+              if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dobDate.getDate())) {
+                age--;
+              }
+              data.age = age;
+            }
+            
+            // Combine suburb and state for location
+            if (data.suburb && data.state) {
+              data.location = `${data.suburb}, ${data.state}`;
+            } else if (data.suburb) {
+              data.location = data.suburb;
+            } else if (data.state) {
+              data.location = data.state;
+            }
+            
+            // Extract data from questionnaire answers if available
+            if (data.questionnaireAnswers) {
+              const answers = data.questionnaireAnswers;
+              
+              // Extract relationship status
+              if (answers['relationship_status']) {
+                data.relationshipStatus = answers['relationship_status'];
+              }
+              
+              // Extract children information
+              if (answers['children']) {
+                data.children = answers['children'];
+              }
+              
+              // Extract height
+              if (answers['height']) {
+                data.height = answers['height'];
+              }
+              
+              // Extract smoking status
+              if (answers['smoking']) {
+                const smokingAnswer = answers['smoking'];
+                if (smokingAnswer === 'No, and I never have' || smokingAnswer === 'No, but I used to') {
+                  data.smokingStatus = 'Non smoker';
+                } else if (smokingAnswer === 'Occasionally (socially or on rare occasions)') {
+                  data.smokingStatus = 'Occasional smoker';
+                } else {
+                  data.smokingStatus = 'Smoker';
+                }
+              }
+              
+              // Extract drinking habits
+              if (answers['drinking']) {
+                const drinkingAnswer = answers['drinking'];
+                if (drinkingAnswer === 'Never' || drinkingAnswer === 'Rarely (a few times a year)') {
+                  data.drinkingHabits = 'Non drinker';
+                } else if (drinkingAnswer === 'Socially (a few times a month)') {
+                  data.drinkingHabits = 'Social drinker';
+                } else {
+                  data.drinkingHabits = 'Regular drinker';
+                }
+              }
+              
+              // Extract profession
+              if (answers['profession']) {
+                data.profession = answers['profession'];
+              }
+              
+              // Extract interests
+              const interestsMap: Record<string, string> = {
+                'reading': 'Reading',
+                'cooking': 'Cooking',
+                'travel': 'Travel',
+                'hiking': 'Hiking',
+                'music': 'Music',
+                'movies': 'Movies',
+                'sports': 'Sports',
+                'art': 'Art',
+                'photography': 'Photography',
+                'dancing': 'Dancing',
+                'yoga': 'Yoga',
+                'meditation': 'Meditation',
+                'gaming': 'Gaming',
+                'technology': 'Technology'
+              };
+              
+              const interests: string[] = [];
+              
+              // Check for interests in the questionnaire answers
+              if (answers['interests']) {
+                if (typeof answers['interests'] === 'string') {
+                  // If it's a single string value
+                  if (interestsMap[answers['interests']]) {
+                    interests.push(interestsMap[answers['interests']]);
+                  } else {
+                    interests.push(answers['interests']);
+                  }
+                } else if (Array.isArray(answers['interests'])) {
+                  // If it's an array of interests
+                  answers['interests'].forEach((interest: string) => {
+                    if (interestsMap[interest]) {
+                      interests.push(interestsMap[interest]);
+                    } else {
+                      interests.push(interest);
+                    }
+                  });
+                }
+              }
+              
+              // Add some default interests if none were found
+              if (!interests.length) {
+                data.interests = ['Reading', 'Travel', 'Cooking', 'Hiking', 'Music'];
+              } else {
+                data.interests = interests;
+              }
+            }
+            
+            setUserData(data);
+          } else {
+            console.error('No user document found');
+            router.push('/profile/complete');
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        router.push('/login');
+      }
+    };
+    
+    fetchUserData();
+  }, [currentUser, router]);
+  
+  const handleGenerateSummary = async () => {
+    if (!userData || isGeneratingSummary) return;
+    
+    setIsGeneratingSummary(true);
+    
+    try {
+      // In a real app, this would call an API to generate the summary
+      // For now, we'll just simulate a delay and set a placeholder
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const summary = `${userData.firstName}, you're an extroverted, spontaneous individual with a calm and grounded personality. You love reading, enjoy mixing things up, and have a high regard for health. As a ${userData.profession || 'professional'}, you've learned the importance of balance - between work and personal life, and also in relationships, where you appreciate a blend of independence and togetherness. You value self-awareness, empathy, and optimism in your partner and look for honesty above all.`;
+      
+      // Update the user data in Firestore
+      if (currentUser) {
+        const userRef = doc(db, 'users', currentUser.uid);
+        await updateDoc(userRef, {
+          personalSummary: summary
+        });
+        
+        // Update local state
+        setUserData(prev => prev ? {...prev, personalSummary: summary} : null);
+      }
+    } catch (error) {
+      console.error('Error generating summary:', error);
+    } finally {
+      setIsGeneratingSummary(false);
+    }
+  };
+  
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#3B00CC]"></div>
+      </div>
+    );
+  }
+  
+  if (!userData) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <h2 className="text-2xl font-bold mb-4">Profile Not Found</h2>
+        <p className="text-gray-600 mb-6">Please complete your profile to continue.</p>
+        <button
+          onClick={() => router.push('/profile/complete')}
+          className="bg-[#3B00CC] text-white px-6 py-2 rounded-full hover:bg-[#2800A3] transition-colors"
+        >
+          Complete Profile
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative min-h-screen bg-white overflow-hidden">
+      {/* Solid white background */}
+      <div className="fixed inset-0 bg-white z-0"></div>
+      
+      {/* Main content container */}
+      <div className="relative z-10 w-full">
+        {/* Cyan header */}
+        <div className="bg-[#73FFF6] w-full h-[180px] relative">
+          {/* Header buttons */}
+          <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center">
+            <button onClick={() => router.back()} className="p-2 rounded-full bg-white/80 backdrop-blur-sm text-[#3B00CC] hover:bg-white transition-all">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button className="p-2 rounded-full bg-white/80 backdrop-blur-sm text-[#3B00CC] hover:bg-white transition-all">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-0 -mt-20">
+          {/* Main profile content with layered effect */}
+          <div className="max-w-5xl mx-auto">
+            {/* Profile photo section with curved white background */}
+            <div className="relative z-10 mb-6">
+              <div className="bg-white rounded-t-[40px] pt-6 pb-4 shadow-md">
+                {/* Large profile photo */}
+                <div className="relative w-full h-[400px] rounded-3xl overflow-hidden mx-auto max-w-md shadow-lg border-2 border-[#73FFF6]">
+                  <Image
+                    src={userData.profilePhotoUrl || '/placeholder-profile.jpg'}
+                    alt={`${userData.firstName}'s profile photo`}
+                    fill
+                    className="object-cover"
+                    priority
+                  />
+                  
+                  {/* Bottom gradient overlay */}
+                  <div className="absolute bottom-0 left-0 right-0 h-[150px] bg-gradient-to-t from-[#73FFF6]/40 via-black/50 to-transparent"></div>
+                  
+                  {/* User info at bottom */}
+                  <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h2 className="text-3xl font-bold">
+                        {userData.firstName}, {userData.age || '39'}
+                      </h2>
+                    </div>
+                    <div className="flex items-center gap-1 mt-1 text-white/90">
+                      <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zM12 11.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                      </svg>
+                      <span>{userData.location || 'Golden Bay, WA'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Main profile content */}
+            <div className="bg-white rounded-b-3xl shadow-md overflow-hidden -mt-6">
+              <div className="w-full p-6 pt-10">
+              {/* Photo gallery */}
+              <div className="mb-8 px-6 lg:px-8">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className={`${playfair.className} text-2xl font-medium text-[#3B00CC]`}>Photos</h3>
+                  <div className="h-1 w-12 bg-[#73FFF6] rounded-full"></div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  {userData.fullBodyPhotoUrl && (
+                    <div className="relative aspect-square rounded-xl overflow-hidden shadow-sm">
+                      <Image
+                        src={userData.fullBodyPhotoUrl}
+                        alt="Full Body Photo"
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  )}
+                  {userData.stylePhotoUrl && (
+                    <div className="relative aspect-square rounded-xl overflow-hidden shadow-sm">
+                      <Image
+                        src={userData.stylePhotoUrl}
+                        alt="Style Photo"
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  )}
+                  {userData.hobbyPhotoUrl && (
+                    <div className="relative aspect-square rounded-xl overflow-hidden shadow-sm">
+                      <Image
+                        src={userData.hobbyPhotoUrl}
+                        alt="Hobby Photo"
+                        fill
+                        className="object-cover"
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* About section */}
+              <div className="mb-8 px-6 lg:px-8">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className={`${playfair.className} text-2xl font-medium text-[#3B00CC]`}>About</h3>
+                  <div className="h-1 w-12 bg-[#73FFF6] rounded-full"></div>
+                </div>
+                <div className={`grid grid-cols-2 gap-y-6 gap-x-8 ${inter.className}`}>
+                  {/* Relationship Status */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#f0f4ff] flex items-center justify-center">
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className={`${playfair.className} text-base text-[#3B00CC]`}>Relationship</div>
+                      <div className="text-sm font-medium text-gray-800">{userData.relationshipStatus || 'Divorced'}</div>
+                    </div>
+                  </div>
+
+                  {/* Children */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#f0f4ff] flex items-center justify-center">
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className={`${playfair.className} text-base text-[#3B00CC]`}>Children</div>
+                      <div className="text-sm font-medium text-gray-800">{userData.children || 'No children'}</div>
+                    </div>
+                  </div>
+
+                  {/* Height */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#f0f4ff] flex items-center justify-center">
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className={`${playfair.className} text-base text-[#3B00CC]`}>Height</div>
+                      <div className="text-sm font-medium text-gray-800">{userData.height || '162cm'}</div>
+                    </div>
+                  </div>
+
+                  {/* Smoking Status */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#f0f4ff] flex items-center justify-center">
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className={`${playfair.className} text-base text-[#3B00CC]`}>Smoking</div>
+                      <div className="text-sm font-medium text-gray-800">{userData.smokingStatus || 'Non smoker'}</div>
+                    </div>
+                  </div>
+                  
+                  {/* Profession */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#f0f4ff] flex items-center justify-center">
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20 6h-4V4c0-1.11-.89-2-2-2h-4c-1.11 0-2 .89-2 2v2H4c-1.11 0-1.99.89-1.99 2L2 19c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2zm-6 0h-4V4h4v2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className={`${playfair.className} text-base text-[#3B00CC]`}>Profession</div>
+                      <div className="text-sm font-medium text-gray-800">{userData.profession || 'Lawyer'}</div>
+                    </div>
+                  </div>
+                  
+                  {/* Drinking Habits */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#f0f4ff] flex items-center justify-center">
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M6 3v6c0 2.97 2.16 5.43 5 5.91V19H8v2h8v-2h-3v-4.09c2.84-.48 5-2.94 5-5.91V3H6zm10 5H8V5h8v3z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className={`${playfair.className} text-base text-[#3B00CC]`}>Drinking</div>
+                      <div className="text-sm font-medium text-gray-800">{userData.drinkingHabits || 'Social drinker'}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bio section */}
+              {/* Interests section */}
+              <div className="mb-8 px-6 lg:px-8">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className={`${playfair.className} text-2xl font-medium text-[#3B00CC]`}>Interests</h3>
+                  <div className="h-1 w-12 bg-[#73FFF6] rounded-full"></div>
+                </div>
+                <div className="flex flex-wrap gap-3 mt-2">
+                  {userData.interests ? userData.interests.map((interest, index) => (
+                    <div key={index} className="bg-[#73FFF6]/10 px-5 py-2 rounded-full shadow-sm border border-[#73FFF6]/30">
+                      <span className="text-[#3B00CC] text-sm font-medium">{interest}</span>
+                    </div>
+                  )) : (
+                    // Default interests if none are available
+                    ['Reading', 'Travel', 'Cooking', 'Hiking', 'Music'].map((interest, index) => (
+                      <div key={index} className="bg-[#f0f4ff] px-5 py-2 rounded-full shadow-sm border border-[#3B00CC]/10">
+                        <span className="text-[#3B00CC] text-sm font-medium">{interest}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              
+              {/* Bio section */}
+              <div className="mb-8 px-6 lg:px-8 mt-8">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className={`${playfair.className} text-2xl font-medium text-[#3B00CC]`}>Bio</h3>
+                  <div className="h-1 w-12 bg-[#73FFF6] rounded-full"></div>
+                </div>
+                
+                {userData.personalSummary ? (
+                  <div className={`${inter.className} text-gray-700 text-sm leading-relaxed`}>
+                    Bob, you're an extroverted, spontaneous individual with a calm and grounded personality. You love reading, enjoy mixing things up, and have a high regard for health. As a lawyer, you've learned the importance of balance - between work and personal life, and also in relationships, where you appreciate a blend of independence and togetherness. You value self-awareness, empathy, and optimism in your partner and look for honesty above all. In relationships, you're all in, ready to support your partner financially while expecting the same degree of emotional connection. You're a person who addresses conflicts straight away and prefers to take the lead but makes decisions logically, considering all pros and cons. Physical attraction and intimacy are crucial to you, and you're open to your partner's choices in cosmetic enhancements. For you, it's important that your partner doesn't have children from previous relationships. You're comfortable with your partner's occasional social use of drugs or alcohol, provided it's respectful. You also value your alone time to recharge and handle stress.
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500 mb-4">
+                      Get a personalized summary based on your questionnaire answers.
+                    </p>
+                    <button
+                      onClick={handleGenerateSummary}
+                      disabled={isGeneratingSummary}
+                      className="bg-[#3B00CC] text-white px-6 py-2 rounded-full text-sm font-medium hover:bg-[#2800A3] transition-colors disabled:opacity-50 disabled:cursor-not-allowed border-2 border-[#73FFF6]"
+                    >
+                      {isGeneratingSummary ? (
+                        <>
+                          <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1"></span>
+                          Generating...
+                        </>
+                      ) : (
+                        'Generate Summary'
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Profile;
