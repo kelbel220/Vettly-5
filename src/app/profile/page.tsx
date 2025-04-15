@@ -1,15 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { inter, playfair } from '@/app/fonts';
-import { OrbField } from '@/app/components/gradients/OrbField';
-import { HomeOrbField } from '@/app/components/gradients/HomeOrbField';
 import { useAuth } from '@/context/AuthContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db } from '@/lib/firebase-init';
-import { Wine, Cigarette } from 'lucide-react';
+import { Wine, Cigarette, Heart, MapPin, ArrowLeft, MessageCircle, Upload } from 'lucide-react';
+import { OrbField } from '../components/gradients/OrbField';
 
 interface UserProfile {
   firstName: string;
@@ -35,12 +35,104 @@ interface UserProfile {
   interests?: string[];
 }
 
-function Profile() {
+export default function Profile() {
   const router = useRouter();
   const { currentUser } = useAuth();
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleGenerateSummary = async () => {
+    setIsGeneratingSummary(true);
+    
+    try {
+      // This would typically be an API call to generate a summary
+      setTimeout(async () => {
+        // For demo purposes, we'll just use a template string
+        const summary = `${userData?.firstName || 'User'} is a ${userData?.age || '30'}-year-old ${userData?.profession || 'professional'} from ${userData?.location || 'Sydney'}. They enjoy spending time with friends and family, traveling, and exploring new cuisines.`;
+        
+        if (currentUser && userData) {
+          const userRef = doc(db, 'users', currentUser.uid);
+          await updateDoc(userRef, {
+            personalSummary: summary
+          });
+          
+          setUserData({
+            ...userData,
+            personalSummary: summary
+          });
+        }
+        
+        setIsGeneratingSummary(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Error generating summary:', error);
+      setIsGeneratingSummary(false);
+    }
+  };
+
+  const toggleFavorite = () => {
+    setIsFavorite(!isFavorite);
+  };
+
+  const handlePhotoClick = (photoType: string) => {
+    setUploadingPhoto(photoType);
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser || !uploadingPhoto) return;
+
+    try {
+      setIsLoading(true);
+      const storage = getStorage();
+      const fileRef = ref(storage, `users/${currentUser.uid}/${uploadingPhoto}_${Date.now()}`);
+      
+      await uploadBytes(fileRef, file);
+      const downloadURL = await getDownloadURL(fileRef);
+      
+      const userRef = doc(db, 'users', currentUser.uid);
+      let updateData = {};
+      
+      if (uploadingPhoto === 'profilePhoto') {
+        updateData = { profilePhotoUrl: downloadURL };
+      } else if (uploadingPhoto === 'fullBodyPhoto') {
+        updateData = { fullBodyPhotoUrl: downloadURL };
+      } else if (uploadingPhoto === 'stylePhoto') {
+        updateData = { stylePhotoUrl: downloadURL };
+      } else if (uploadingPhoto === 'hobbyPhoto') {
+        updateData = { hobbyPhotoUrl: downloadURL };
+      }
+      
+      await updateDoc(userRef, updateData);
+      
+      // Update local state
+      if (userData) {
+        setUserData({
+          ...userData,
+          ...updateData
+        });
+      }
+      
+      setIsLoading(false);
+      setUploadingPhoto(null);
+      
+      // Clear the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      setIsLoading(false);
+      setUploadingPhoto(null);
+    }
+  };
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -73,34 +165,9 @@ function Profile() {
     fetchUserData();
   }, [currentUser, router]);
 
-  const handleGenerateSummary = async () => {
-    setIsGeneratingSummary(true);
-    
-    try {
-      // This would typically be an API call to generate a summary
-      setTimeout(async () => {
-        // For demo purposes, we'll just use a template string
-        const summary = `${userData?.firstName || 'User'} is a ${userData?.age || '30'}-year-old ${userData?.profession || 'professional'} from ${userData?.location || 'Sydney'}. They enjoy spending time with friends and family, traveling, and exploring new cuisines.`;
-        
-        if (currentUser && userData) {
-          const userRef = doc(db, 'users', currentUser.uid);
-          await updateDoc(userRef, {
-            personalSummary: summary
-          });
-          
-          setUserData({
-            ...userData,
-            personalSummary: summary
-          });
-        }
-        
-        setIsGeneratingSummary(false);
-      }, 2000);
-    } catch (error) {
-      console.error('Error generating summary:', error);
-      setIsGeneratingSummary(false);
-    }
-  };
+
+
+
 
   if (isLoading) {
     return (
@@ -129,251 +196,336 @@ function Profile() {
   }
 
   return (
-    <div className="relative min-h-screen bg-white overflow-hidden">
-      {/* Solid white background */}
-      <div className="fixed inset-0 bg-white z-0"></div>
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Background container with fixed position to cover entire viewport */}
+      <div className="fixed inset-0 w-full h-full" style={{ background: 'linear-gradient(to bottom right, #2800A3, #34D8F1)', zIndex: -10 }}>
+        <div className="absolute inset-0 bg-gradient-to-br from-[#34D8F1]/20 via-transparent to-[#34D8F1]/20" />
+        <div className="absolute inset-0 overflow-hidden">
+          <OrbField />
+        </div>
+      </div>
       
-      {/* Main content container */}
-      <div className="relative z-10 w-full">
-        {/* Cyan header */}
-        <div className="bg-[#73FFF6] w-full h-[180px] relative">
-          {/* Header buttons */}
-          <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-center">
-            <button onClick={() => router.back()} className="p-2 rounded-full bg-white/80 backdrop-blur-sm text-[#3B00CC] hover:bg-white transition-all">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <div className="flex space-x-2">
-              <button className="p-2 rounded-full bg-white/80 backdrop-blur-sm text-[#3B00CC] hover:bg-white transition-all">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                </svg>
-              </button>
-              <button className="p-2 rounded-full bg-white/80 backdrop-blur-sm text-[#3B00CC] hover:bg-white transition-all">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-              </button>
+      {/* Main container with very subtle side border */}
+      <div className="w-[95%] mx-auto bg-transparent h-full overflow-hidden relative z-10">
+        {/* Profile content */}
+        <div className="flex flex-col h-full">
+          {/* Vettly logo */}
+          <div className="flex justify-center mt-4 mb-6">
+            <div className="w-32 h-10 relative">
+              <Image 
+                src="/vettly-logo.png" 
+                alt="Vettly Logo"
+                fill
+                className="object-contain"
+                unoptimized
+              />
             </div>
           </div>
-        </div>
-        
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-0 -mt-20">
-          {/* Main profile content with layered effect */}
-          <div className="max-w-5xl mx-auto">
-            {/* Profile photo section with curved white background */}
-            <div className="relative z-10 mb-6">
-              <div className="bg-white rounded-t-[40px] pt-6 pb-4 shadow-md">
-                {/* Large profile photo */}
-                <div className="relative w-full h-[400px] rounded-3xl overflow-hidden mx-auto max-w-md shadow-lg border-2 border-[#73FFF6]">
-                  <Image 
-                    src={userData.profilePhotoUrl || '/images/default-profile.jpg'} 
-                    alt={`${userData.firstName}'s profile`}
-                    fill
-                    className="object-cover"
-                  />
-                  
-
-                  
-                  {/* User info at bottom */}
-                  <div className="absolute bottom-0 left-0 right-0 p-8 text-white">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h2 className="text-4xl font-bold">
-                        {userData.firstName}, {userData.age || '39'}
-                      </h2>
-                      <svg className="h-6 w-6 text-[#73FFF6]" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+          {/* Top section with image background that takes full width */}
+          <div className="relative">
+            <button onClick={() => router.back()} className="absolute top-4 left-4 z-10 p-2 rounded-full bg-white/80 backdrop-blur-sm text-[#3B00CC] hover:bg-white transition-all">
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            
+            {/* Profile image with improved cropping */}
+            <div 
+              className="w-full aspect-[3/2.5] relative overflow-hidden rounded-t-[40px] cursor-pointer group"
+              onClick={() => handlePhotoClick('profilePhoto')}
+            >
+              <Image 
+                src={userData.profilePhotoUrl || '/placeholder-profile.jpg'} 
+                alt={`${userData.firstName}'s profile`}
+                fill
+                className="object-cover object-top group-hover:opacity-80 transition-opacity"
+                unoptimized
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Upload className="w-12 h-12 text-white" />
+              </div>
+              {uploadingPhoto === 'profilePhoto' && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                  <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          {/* Info section with glass morphism background and rounded corners */}
+          <div className="relative -mt-10 bg-white/15 backdrop-blur-md rounded-[40px] flex-1 px-7 py-6">
+                
+            {/* Name and location */}
+            <div className="mb-4">
+              <div className="mt-0">
+                <div className="flex items-baseline">
+                  <span className="text-[2.5rem] font-bold text-[#3B00CC]" style={{fontFamily: 'Georgia, serif'}}>{userData.firstName},</span>
+                  <span className="text-[1.8rem] text-[#3B00CC] ml-2" style={{fontFamily: 'Georgia, serif', position: 'relative', top: '-4px'}}>{userData.age || '39'}</span>
+                </div>
+                <p className="text-[#3B00CC] text-base mt-2 font-medium">{userData.questionnaireAnswers?.location || userData.location || `${userData.suburb || 'Sydney'}, ${userData.state || 'NSW'}`}</p>
+              </div>
+            </div>
+            
+            {/* Spacer */}
+            <div className="mb-4"></div>
+            
+            {/* Details with icons */}
+            <div className="mb-6 bg-white/10 backdrop-blur-md rounded-2xl p-5">
+              <h2 className="text-2xl font-semibold text-white mb-4 border-b border-white/10 pb-2">Details</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
+                {/* Career Section */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-[#3B00CC] uppercase tracking-wide">Career</h3>
+                  <div className="flex items-center gap-3 bg-white/6 backdrop-blur-sm p-3 rounded-lg">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
                     </div>
-                    <div className="flex items-center gap-1 mt-1 text-white/90">
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <div>
+                      <p className="text-xs text-white/70">Profession</p>
+                      <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>
+                        {userData.questionnaireAnswers?.lifestyle_profession || userData.profession || 'Professional'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Relationship Section */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-[#3B00CC] uppercase tracking-wide">Relationship</h3>
+                  <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                       </svg>
-                      <span>{userData.location || `${userData.suburb || 'Sydney'}, ${userData.state || 'NSW'}`}</span>
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/70">Status</p>
+                      <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>Separated</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Lifestyle Section */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-[#3B00CC] uppercase tracking-wide">Lifestyle</h3>
+                  <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                      <Cigarette className="h-5 w-5 text-[#3B00CC]" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/70">Smoking</p>
+                      <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>
+                        {userData.questionnaireAnswers?.lifestyle_smoking || userData.smokingStatus || 'Non-smoker'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg mt-3">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                      <Wine className="h-5 w-5 text-[#3B00CC]" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/70">Drinking</p>
+                      <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>
+                        {userData.questionnaireAnswers?.lifestyle_drinking || userData.drinkingHabits || 'Social drinker'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Physical & Family Section */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-[#3B00CC] uppercase tracking-wide">Physical & Family</h3>
+                  <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/70">Height</p>
+                      <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>
+                        {userData.questionnaireAnswers?.physical_height || userData.height || '5\'10"'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg mt-3">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/70">Children</p>
+                      <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>
+                        {userData.questionnaireAnswers?.hasChildren === false ? 'No children' : 'Has children'}
+                      </p>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
             
-            {/* Profile details with white background */}
-            <div className="bg-white rounded-b-3xl shadow-md overflow-hidden -mt-6">
-              <div className="w-full p-6 pt-10">
-                {/* Photo gallery */}
-                <div className="mb-8 px-6 lg:px-8">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className={`${playfair.className} text-2xl font-medium text-[#3B00CC]`}>Photos</h3>
-
-                  </div>
-                  <div className="grid grid-cols-3 gap-4">
-                    {/* Full body photo */}
-                    <div className="relative aspect-square rounded-xl overflow-hidden shadow-sm">
+            {/* Interests section with pill boxes */}
+            <div className="mt-8 mb-4">
+              <h2 className="text-2xl font-semibold text-white mb-4">Interests</h2>
+              <div className="grid grid-cols-3 gap-2">
+                {userData.interests ? (
+                  userData.interests.map((interest, index) => (
+                    <div key={index} className="h-10 bg-white/90 text-[#3B00CC] rounded-full text-sm font-medium shadow-sm flex items-center justify-center">
+                      {interest}
+                    </div>
+                  ))
+                ) : (
+                  ['Reading', 'Travel', 'Fitness', 'Cooking', 'Movies'].map((interest, index) => (
+                    <div key={index} className="h-10 bg-white/90 text-[#3B00CC] rounded-full text-sm font-medium shadow-sm flex items-center justify-center">
+                      {interest}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            
+            {/* Personal Summary section */}
+            <div className="mt-8 mb-8">
+              <h2 className="text-2xl font-semibold text-white mb-4">Personal Summary</h2>
+              <div className="bg-white/10 backdrop-blur-md rounded-xl p-4">
+                <p className="text-white text-sm leading-relaxed" style={{fontFamily: inter.style.fontFamily}}>
+                  {userData.personalSummary || "Bob, you're an extroverted, spontaneous individual with a calm and grounded personality. You love reading, enjoy mixing things up, and have a high regard for health. As a lawyer, you've learned the importance of balance - between work and personal life, and also in relationships, where you appreciate a blend of independence and togetherness. You value self-awareness, empathy, and optimism in your partner and look for honesty above all. In relationships, you're all in, ready to support your partner financially while expecting the same degree of emotional connection. You're a person who addresses conflicts straight away and prefers to take the lead but makes decisions logically, considering all pros and cons. Physical attraction and intimacy are crucial to you, and you're open to your partner's choices in cosmetic enhancements. For you, it's important that your partner doesn't have children from previous relationships. You're comfortable with your partner's occasional social use of drugs or alcohol, provided it's respectful. You also value your alone time to recharge and handle stress."}
+                </p>
+                {!userData.personalSummary && (
+                  <button 
+                    onClick={handleGenerateSummary}
+                    disabled={isGeneratingSummary}
+                    className="mt-4 px-5 py-2.5 bg-[#34D8F1] text-white rounded-lg text-sm font-medium hover:bg-[#34D8F1]/80 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center w-full shadow-sm"
+                  >
+                    {isGeneratingSummary ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Generating...
+                      </>
+                    ) : 'Generate Summary'}
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            {/* Additional Photos section */}
+            <div className="mb-4">
+              <h2 className="text-2xl font-semibold text-white mb-3">Photos</h2>
+              <div className="grid grid-cols-3 gap-2 mx-auto w-full">
+                {/* Full Body Photo */}
+                <div 
+                  className="relative aspect-square rounded-2xl overflow-hidden shadow-sm bg-white/90 cursor-pointer group"
+                  onClick={() => handlePhotoClick('fullBodyPhoto')}
+                >
+                  {userData?.fullBodyPhotoUrl ? (
+                    <>
                       <Image 
-                        src={userData.fullBodyPhotoUrl || '/images/default-full-body.jpg'} 
-                        alt="Full body photo"
+                        src={userData.fullBodyPhotoUrl} 
+                        alt="Full Body Photo"
                         fill
-                        className="object-cover"
+                        className="object-cover group-hover:opacity-80 transition-opacity"
                       />
-                    </div>
-                    {/* Style photo */}
-                    <div className="relative aspect-square rounded-xl overflow-hidden shadow-sm">
-                      <Image 
-                        src={userData.stylePhotoUrl || '/images/default-style.jpg'} 
-                        alt="Style photo"
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                    {/* Hobby photo */}
-                    <div className="relative aspect-square rounded-xl overflow-hidden shadow-sm">
-                      <Image 
-                        src={userData.hobbyPhotoUrl || '/images/default-hobby.jpg'} 
-                        alt="Hobby photo"
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  </div>
-                </div>
-                
-                {/* About section */}
-                <div className="mb-8 px-6 lg:px-8">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className={`${playfair.className} text-2xl font-medium text-[#3B00CC]`}>About</h3>
-
-                  </div>
-                  <div className={`grid grid-cols-2 gap-y-6 gap-x-8 ${inter.className}`}>
-                    {/* Relationship Status */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#f0f4ff] flex items-center justify-center">
-                        <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                        </svg>
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Upload className="w-8 h-8 text-white" />
                       </div>
-                      <div>
-                        <div className={`${playfair.className} text-base text-[#3B00CC]`}>Relationship</div>
-                        <div className="text-sm font-medium text-gray-800">{userData.relationshipStatus || 'Divorced'}</div>
-                      </div>
-                    </div>
-                    
-                    {/* Children */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#f0f4ff] flex items-center justify-center">
-                        <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <div className={`${playfair.className} text-base text-[#3B00CC]`}>Children</div>
-                        <div className="text-sm font-medium text-gray-800">{userData.children || 'No children'}</div>
-                      </div>
-                    </div>
-                    
-                    {/* Height */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#f0f4ff] flex items-center justify-center">
-                        <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <div className={`${playfair.className} text-base text-[#3B00CC]`}>Height</div>
-                        <div className="text-sm font-medium text-gray-800">{userData.height || '162cm'}</div>
-                      </div>
-                    </div>
-                    
-                    {/* Smoking */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#f0f4ff] flex items-center justify-center">
-                        <Cigarette className="h-5 w-5 text-[#3B00CC]" />
-                      </div>
-                      <div>
-                        <div className={`${playfair.className} text-base text-[#3B00CC]`}>Smoking</div>
-                        <div className="text-sm font-medium text-gray-800">{userData.smokingStatus || 'Non smoker'}</div>
-                      </div>
-                    </div>
-                    
-                    {/* Profession */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#f0f4ff] flex items-center justify-center">
-                        <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <div className={`${playfair.className} text-base text-[#3B00CC]`}>Profession</div>
-                        <div className="text-sm font-medium text-gray-800">{userData.profession || 'Lawyer'}</div>
-                      </div>
-                    </div>
-                    
-                    {/* Drinking */}
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#f0f4ff] flex items-center justify-center">
-                        <Wine className="h-5 w-5 text-[#3B00CC]" />
-                      </div>
-                      <div>
-                        <div className={`${playfair.className} text-base text-[#3B00CC]`}>Drinking</div>
-                        <div className="text-sm font-medium text-gray-800">{userData.drinkingHabits || 'Social drinker'}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Interests section */}
-                <div className="mb-8 px-6 lg:px-8">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className={`${playfair.className} text-2xl font-medium text-[#3B00CC]`}>Interests</h3>
-
-                  </div>
-                  <div className="flex flex-wrap gap-3 mt-2">
-                    {userData.interests && userData.interests.length > 0 ? (
-                      userData.interests.map((interest, index) => (
-                        <div key={index} className="bg-[#f5f0ff] px-5 py-2 rounded-full shadow-sm border border-[#3B00CC]">
-                          <span className="text-[#3B00CC] font-medium">{interest}</span>
-                        </div>
-                      ))
-                    ) : (
-                      // Sample interests for demo
-                      ['Travel', 'Photography', 'Cooking', 'Hiking', 'Reading'].map((interest, index) => (
-                        <div key={index} className="bg-[#f5f0ff] px-5 py-2 rounded-full shadow-sm border border-[#3B00CC]">
-                          <span className="text-[#3B00CC] font-medium">{interest}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-                
-                {/* Personal summary section */}
-                <div className="mb-8 px-6 lg:px-8">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className={`${playfair.className} text-2xl font-medium text-[#3B00CC]`}>Personal Summary</h3>
-
-                  </div>
-                  
-                  {userData.personalSummary ? (
-                    <p className="text-gray-700 leading-relaxed">{userData.personalSummary}</p>
+                    </>
                   ) : (
-                    <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                      <p className="text-gray-500 mb-4">No personal summary yet. Generate one with your profile details.</p>
-                      <button 
-                        onClick={handleGenerateSummary}
-                        disabled={isGeneratingSummary}
-                        className="px-5 py-2 bg-[#3B00CC] text-white rounded-full text-sm font-medium shadow-sm hover:bg-[#2A008F] transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center w-full sm:w-auto"
-                      >
-                        {isGeneratingSummary ? (
-                          <>
-                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Generating Summary...
-                          </>
-                        ) : (
-                          'Generate Summary'
-                        )}
-                      </button>
+                    <>
+                      <Image 
+                        src="/images/placeholder-1.jpg" 
+                        alt="Full Body Photo"
+                        fill
+                        className="object-cover group-hover:opacity-80 transition-opacity"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Upload className="w-8 h-8 text-white" />
+                      </div>
+                    </>
+                  )}
+                  {uploadingPhoto === 'fullBodyPhoto' && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                      <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Style Photo */}
+                <div 
+                  className="relative aspect-square rounded-2xl overflow-hidden shadow-sm bg-white/90 cursor-pointer group"
+                  onClick={() => handlePhotoClick('stylePhoto')}
+                >
+                  {userData?.stylePhotoUrl ? (
+                    <>
+                      <Image 
+                        src={userData.stylePhotoUrl} 
+                        alt="Style Photo"
+                        fill
+                        className="object-cover group-hover:opacity-80 transition-opacity"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Upload className="w-8 h-8 text-white" />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Image 
+                        src="/images/placeholder-2.jpg" 
+                        alt="Style Photo"
+                        fill
+                        className="object-cover group-hover:opacity-80 transition-opacity"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Upload className="w-8 h-8 text-white" />
+                      </div>
+                    </>
+                  )}
+                  {uploadingPhoto === 'stylePhoto' && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                      <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Hobby Photo */}
+                <div 
+                  className="relative aspect-square rounded-2xl overflow-hidden shadow-sm bg-white/90 cursor-pointer group"
+                  onClick={() => handlePhotoClick('hobbyPhoto')}
+                >
+                  {userData?.hobbyPhotoUrl ? (
+                    <>
+                      <Image 
+                        src={userData.hobbyPhotoUrl} 
+                        alt="Hobby Photo"
+                        fill
+                        className="object-cover group-hover:opacity-80 transition-opacity"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Upload className="w-8 h-8 text-white" />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Image 
+                        src="/images/placeholder-3.jpg" 
+                        alt="Hobby Photo"
+                        fill
+                        className="object-cover group-hover:opacity-80 transition-opacity"
+                      />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Upload className="w-8 h-8 text-white" />
+                      </div>
+                    </>
+                  )}
+                  {uploadingPhoto === 'hobbyPhoto' && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                      <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
                     </div>
                   )}
                 </div>
@@ -382,8 +534,62 @@ function Profile() {
           </div>
         </div>
       </div>
+      
+      {/* Gap to show background before navigation */}
+      <div className="h-28"></div>
+      
+      {/* Mobile Bottom Navigation */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 flex items-center justify-center py-2 px-4 bg-[#73FFF6]/95 backdrop-blur-xl border-t border-white/10">
+        <div className="flex gap-10">
+          {[
+            { id: 'dashboard', icon: (
+              <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            )},
+            { id: 'messages', icon: (
+              <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+              </svg>
+            )},
+            { id: 'matches', icon: (
+              <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+              </svg>
+            )},
+            { id: 'profile', icon: (
+              <svg className="w-6 h-6" fill="#3B00CC" stroke="#3B00CC" strokeWidth="1" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+              </svg>
+            )}
+          ].map((item) => (
+            <button
+              key={item.id}
+              className={`p-2 rounded-lg transition-all ${
+                item.id === 'profile'
+                  ? 'bg-white/25 text-white'
+                  : 'text-white hover:text-white hover:bg-white/20'
+              }`}
+              onClick={() => {
+                router.push(`/${item.id === 'dashboard' ? '' : item.id}`);
+              }}
+            >
+              {item.icon}
+            </button>
+          ))}
+        </div>
+        
+        {/* Hidden file input for photo uploads */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept="image/*"
+          className="hidden"
+        />
+      </div>
     </div>
   );
 }
 
-export default Profile;
+
