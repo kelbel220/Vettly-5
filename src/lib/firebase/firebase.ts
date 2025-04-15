@@ -5,7 +5,7 @@ import { getStorage } from "firebase/storage";
 import { getAnalytics } from "firebase/analytics";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBcN1r5zwzX2lDX9PajoHcdLK6Nl9vgtUg",
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
   authDomain: "vettlymatch.firebaseapp.com",
   projectId: "vettlymatch",
   storageBucket: "vettlymatch.firebasestorage.app",
@@ -13,6 +13,11 @@ const firebaseConfig = {
   appId: "1:946180653225:web:bd33e5f7fe3dac1fdea9b8",
   measurementId: "G-F1T1EJBBCL"
 };
+
+// Check if the API key is available
+if (!firebaseConfig.apiKey) {
+  console.warn('Firebase API key is missing. Please check your environment variables.');
+}
 
 // Initialize Firebase
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
