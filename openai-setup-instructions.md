@@ -12,7 +12,7 @@ To enable the OpenAI GPT-4 integration for generating personalized summaries, yo
 3. Add the following line to the file:
 
 ```
-OPENAI_API_KEY=your_actual_api_key_here
+OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxx
 ```
 
 4. Replace `your_actual_api_key_here` with your actual OpenAI API key
