@@ -1,15 +1,14 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { inter, playfair } from '@/app/fonts';
+import { OrbField } from '@/app/components/gradients/OrbField';
+import { HomeOrbField } from '@/app/components/gradients/HomeOrbField';
 import { useAuth } from '@/context/AuthContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db } from '@/lib/firebase-init';
-import { Wine, Cigarette, Heart, MapPin, ArrowLeft, MessageCircle, Upload } from 'lucide-react';
-import { OrbField } from '../components/gradients/OrbField';
 
 interface UserProfile {
   firstName: string;
@@ -41,9 +40,6 @@ export default function Profile() {
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleGenerateSummary = async () => {
     setIsGeneratingSummary(true);
@@ -74,66 +70,6 @@ export default function Profile() {
     }
   };
 
-  const toggleFavorite = () => {
-    setIsFavorite(!isFavorite);
-  };
-
-  const handlePhotoClick = (photoType: string) => {
-    setUploadingPhoto(photoType);
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !currentUser || !uploadingPhoto) return;
-
-    try {
-      setIsLoading(true);
-      const storage = getStorage();
-      const fileRef = ref(storage, `users/${currentUser.uid}/${uploadingPhoto}_${Date.now()}`);
-      
-      await uploadBytes(fileRef, file);
-      const downloadURL = await getDownloadURL(fileRef);
-      
-      const userRef = doc(db, 'users', currentUser.uid);
-      let updateData = {};
-      
-      if (uploadingPhoto === 'profilePhoto') {
-        updateData = { profilePhotoUrl: downloadURL };
-      } else if (uploadingPhoto === 'fullBodyPhoto') {
-        updateData = { fullBodyPhotoUrl: downloadURL };
-      } else if (uploadingPhoto === 'stylePhoto') {
-        updateData = { stylePhotoUrl: downloadURL };
-      } else if (uploadingPhoto === 'hobbyPhoto') {
-        updateData = { hobbyPhotoUrl: downloadURL };
-      }
-      
-      await updateDoc(userRef, updateData);
-      
-      // Update local state
-      if (userData) {
-        setUserData({
-          ...userData,
-          ...updateData
-        });
-      }
-      
-      setIsLoading(false);
-      setUploadingPhoto(null);
-      
-      // Clear the file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    } catch (error) {
-      console.error('Error uploading photo:', error);
-      setIsLoading(false);
-      setUploadingPhoto(null);
-    }
-  };
-
   useEffect(() => {
     const fetchUserData = async () => {
       if (currentUser) {
@@ -148,7 +84,7 @@ export default function Profile() {
             const defaultProfile: UserProfile = {
               firstName: 'New',
               lastName: 'User',
-              profilePhotoUrl: '/images/default-profile.jpg',
+              profilePhotoUrl: '/placeholder-profile.jpg',
             };
             setUserData(defaultProfile);
           }
@@ -165,10 +101,6 @@ export default function Profile() {
     fetchUserData();
   }, [currentUser, router]);
 
-
-
-
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-white">
@@ -184,10 +116,10 @@ export default function Profile() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-white p-4">
         <h1 className="text-2xl font-bold text-[#3B00CC] mb-4">Profile Not Found</h1>
-        <p className="text-gray-600 mb-6">We couldn't find your profile information. Please log in again or complete your profile.</p>
-        <button 
-          onClick={() => router.push('/login')} 
-          className="px-6 py-3 bg-[#3B00CC] text-white rounded-full font-medium shadow-md hover:bg-[#2A008F] transition-all"
+        <p className="text-gray-600 mb-6">Please complete your profile to continue.</p>
+        <button
+          onClick={() => router.push('/profile/complete')}
+          className="bg-[#3B00CC] text-white px-6 py-2 rounded-full hover:bg-[#2800A3] transition-colors"
         >
           Complete Profile
         </button>
@@ -221,32 +153,24 @@ export default function Profile() {
               />
             </div>
           </div>
+          
           {/* Top section with image background that takes full width */}
           <div className="relative">
             <button onClick={() => router.back()} className="absolute top-4 left-4 z-10 p-2 rounded-full bg-white/80 backdrop-blur-sm text-[#3B00CC] hover:bg-white transition-all">
-              <ArrowLeft className="h-5 w-5" />
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
             </button>
             
             {/* Profile image with improved cropping */}
-            <div 
-              className="w-full aspect-[3/2.5] relative overflow-hidden rounded-t-[40px] cursor-pointer group"
-              onClick={() => handlePhotoClick('profilePhoto')}
-            >
+            <div className="w-full aspect-[3/2.5] relative overflow-hidden rounded-t-[40px]">
               <Image 
                 src={userData.profilePhotoUrl || '/placeholder-profile.jpg'} 
                 alt={`${userData.firstName}'s profile`}
                 fill
-                className="object-cover object-top group-hover:opacity-80 transition-opacity"
+                className="object-cover object-top"
                 unoptimized
               />
-              <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Upload className="w-12 h-12 text-white" />
-              </div>
-              {uploadingPhoto === 'profilePhoto' && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                  <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-                </div>
-              )}
             </div>
           </div>
           
@@ -311,7 +235,9 @@ export default function Profile() {
                   <h3 className="text-sm font-medium text-[#3B00CC] uppercase tracking-wide">Lifestyle</h3>
                   <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg">
                     <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                      <Cigarette className="h-5 w-5 text-[#3B00CC]" />
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
                     </div>
                     <div>
                       <p className="text-xs text-white/70">Smoking</p>
@@ -323,7 +249,9 @@ export default function Profile() {
                   
                   <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg mt-3">
                     <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                      <Wine className="h-5 w-5 text-[#3B00CC]" />
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
                     </div>
                     <div>
                       <p className="text-xs text-white/70">Drinking</p>
@@ -414,123 +342,6 @@ export default function Profile() {
                 )}
               </div>
             </div>
-            
-            {/* Additional Photos section */}
-            <div className="mb-4">
-              <h2 className="text-2xl font-semibold text-white mb-3">Photos</h2>
-              <div className="grid grid-cols-3 gap-2 mx-auto w-full">
-                {/* Full Body Photo */}
-                <div 
-                  className="relative aspect-square rounded-2xl overflow-hidden shadow-sm bg-white/90 cursor-pointer group"
-                  onClick={() => handlePhotoClick('fullBodyPhoto')}
-                >
-                  {userData?.fullBodyPhotoUrl ? (
-                    <>
-                      <Image 
-                        src={userData.fullBodyPhotoUrl} 
-                        alt="Full Body Photo"
-                        fill
-                        className="object-cover group-hover:opacity-80 transition-opacity"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Upload className="w-8 h-8 text-white" />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <Image 
-                        src="/images/placeholder-1.jpg" 
-                        alt="Full Body Photo"
-                        fill
-                        className="object-cover group-hover:opacity-80 transition-opacity"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Upload className="w-8 h-8 text-white" />
-                      </div>
-                    </>
-                  )}
-                  {uploadingPhoto === 'fullBodyPhoto' && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                      <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Style Photo */}
-                <div 
-                  className="relative aspect-square rounded-2xl overflow-hidden shadow-sm bg-white/90 cursor-pointer group"
-                  onClick={() => handlePhotoClick('stylePhoto')}
-                >
-                  {userData?.stylePhotoUrl ? (
-                    <>
-                      <Image 
-                        src={userData.stylePhotoUrl} 
-                        alt="Style Photo"
-                        fill
-                        className="object-cover group-hover:opacity-80 transition-opacity"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Upload className="w-8 h-8 text-white" />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <Image 
-                        src="/images/placeholder-2.jpg" 
-                        alt="Style Photo"
-                        fill
-                        className="object-cover group-hover:opacity-80 transition-opacity"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Upload className="w-8 h-8 text-white" />
-                      </div>
-                    </>
-                  )}
-                  {uploadingPhoto === 'stylePhoto' && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                      <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Hobby Photo */}
-                <div 
-                  className="relative aspect-square rounded-2xl overflow-hidden shadow-sm bg-white/90 cursor-pointer group"
-                  onClick={() => handlePhotoClick('hobbyPhoto')}
-                >
-                  {userData?.hobbyPhotoUrl ? (
-                    <>
-                      <Image 
-                        src={userData.hobbyPhotoUrl} 
-                        alt="Hobby Photo"
-                        fill
-                        className="object-cover group-hover:opacity-80 transition-opacity"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Upload className="w-8 h-8 text-white" />
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <Image 
-                        src="/images/placeholder-3.jpg" 
-                        alt="Hobby Photo"
-                        fill
-                        className="object-cover group-hover:opacity-80 transition-opacity"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Upload className="w-8 h-8 text-white" />
-                      </div>
-                    </>
-                  )}
-                  {uploadingPhoto === 'hobbyPhoto' && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                      <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -578,18 +389,7 @@ export default function Profile() {
             </button>
           ))}
         </div>
-        
-        {/* Hidden file input for photo uploads */}
-        <input
-          type="file"
-          ref={fileInputRef}
-          onChange={handleFileChange}
-          accept="image/*"
-          className="hidden"
-        />
       </div>
     </div>
   );
 }
-
-
