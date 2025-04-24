@@ -1,0 +1,395 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { inter, playfair } from '@/app/fonts';
+import { OrbField } from '@/app/components/gradients/OrbField';
+import { HomeOrbField } from '@/app/components/gradients/HomeOrbField';
+import { useAuth } from '@/context/AuthContext';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase-init';
+
+interface UserProfile {
+  firstName: string;
+  lastName: string;
+  profilePhotoUrl: string;
+  fullBodyPhotoUrl?: string;
+  stylePhotoUrl?: string;
+  hobbyPhotoUrl?: string;
+  personalSummary?: string;
+  questionnaireAnswers?: Record<string, any>;
+  questionnaireCompleted?: boolean;
+  dob?: string;
+  suburb?: string;
+  state?: string;
+  age?: number;
+  location?: string;
+  relationshipStatus?: string;
+  children?: string;
+  height?: string;
+  smokingStatus?: string;
+  drinkingHabits?: string;
+  profession?: string;
+  interests?: string[];
+}
+
+export default function Profile() {
+  const router = useRouter();
+  const { currentUser } = useAuth();
+  const [userData, setUserData] = useState<UserProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+
+  const handleGenerateSummary = async () => {
+    setIsGeneratingSummary(true);
+    
+    try {
+      // This would typically be an API call to generate a summary
+      setTimeout(async () => {
+        // For demo purposes, we'll just use a template string
+        const summary = `${userData?.firstName || 'User'} is a ${userData?.age || '30'}-year-old ${userData?.profession || 'professional'} from ${userData?.location || 'Sydney'}. They enjoy spending time with friends and family, traveling, and exploring new cuisines.`;
+        
+        if (currentUser && userData) {
+          const userRef = doc(db, 'users', currentUser.uid);
+          await updateDoc(userRef, {
+            personalSummary: summary
+          });
+          
+          setUserData({
+            ...userData,
+            personalSummary: summary
+          });
+        }
+        
+        setIsGeneratingSummary(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Error generating summary:', error);
+      setIsGeneratingSummary(false);
+    }
+  };
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (currentUser) {
+        try {
+          const userRef = doc(db, 'users', currentUser.uid);
+          const userSnap = await getDoc(userRef);
+          
+          if (userSnap.exists()) {
+            setUserData(userSnap.data() as UserProfile);
+          } else {
+            // Create a default user profile
+            const defaultProfile: UserProfile = {
+              firstName: 'New',
+              lastName: 'User',
+              profilePhotoUrl: '/placeholder-profile.jpg',
+            };
+            setUserData(defaultProfile);
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        router.push('/login');
+      }
+    };
+
+    fetchUserData();
+  }, [currentUser, router]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-[#73FFF6] border-t-[#3B00CC] rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!userData) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-white p-4">
+        <h1 className="text-2xl font-bold text-[#3B00CC] mb-4">Profile Not Found</h1>
+        <p className="text-gray-600 mb-6">Please complete your profile to continue.</p>
+        <button
+          onClick={() => router.push('/profile/complete')}
+          className="bg-[#3B00CC] text-white px-6 py-2 rounded-full hover:bg-[#2800A3] transition-colors"
+        >
+          Complete Profile
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Background container with fixed position to cover entire viewport */}
+      <div className="fixed inset-0 w-full h-full" style={{ background: 'linear-gradient(to bottom right, #2800A3, #34D8F1)', zIndex: -10 }}>
+        <div className="absolute inset-0 bg-gradient-to-br from-[#34D8F1]/20 via-transparent to-[#34D8F1]/20" />
+        <div className="absolute inset-0 overflow-hidden">
+          <OrbField />
+        </div>
+      </div>
+      
+      {/* Main container with very subtle side border */}
+      <div className="w-[95%] mx-auto bg-transparent h-full overflow-hidden relative z-10">
+        {/* Profile content */}
+        <div className="flex flex-col h-full">
+          {/* Vettly logo */}
+          <div className="flex justify-center mt-4 mb-6">
+            <div className="w-32 h-10 relative">
+              <Image 
+                src="/vettly-logo.png" 
+                alt="Vettly Logo"
+                fill
+                className="object-contain"
+                unoptimized
+              />
+            </div>
+          </div>
+          
+          {/* Top section with image background that takes full width */}
+          <div className="relative">
+            <button onClick={() => router.back()} className="absolute top-4 left-4 z-10 p-2 rounded-full bg-white/80 backdrop-blur-sm text-[#3B00CC] hover:bg-white transition-all">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            
+            {/* Profile image with improved cropping */}
+            <div className="w-full aspect-[3/2.5] relative overflow-hidden rounded-t-[40px]">
+              <Image 
+                src={userData.profilePhotoUrl || '/placeholder-profile.jpg'} 
+                alt={`${userData.firstName}'s profile`}
+                fill
+                className="object-cover object-top"
+                unoptimized
+              />
+            </div>
+          </div>
+          
+          {/* Info section with glass morphism background and rounded corners */}
+          <div className="relative -mt-10 bg-white/15 backdrop-blur-md rounded-[40px] flex-1 px-7 py-6">
+                
+            {/* Name and location */}
+            <div className="mb-4">
+              <div className="mt-0">
+                <div className="flex items-baseline">
+                  <span className="text-[2.5rem] font-bold text-[#3B00CC]" style={{fontFamily: 'Georgia, serif'}}>{userData.firstName},</span>
+                  <span className="text-[1.8rem] text-[#3B00CC] ml-2" style={{fontFamily: 'Georgia, serif', position: 'relative', top: '-4px'}}>{userData.age || '39'}</span>
+                </div>
+                <p className="text-[#3B00CC] text-base mt-2 font-medium">{userData.questionnaireAnswers?.location || userData.location || `${userData.suburb || 'Sydney'}, ${userData.state || 'NSW'}`}</p>
+              </div>
+            </div>
+            
+            {/* Spacer */}
+            <div className="mb-4"></div>
+            
+            {/* Details with icons */}
+            <div className="mb-6 bg-white/10 backdrop-blur-md rounded-2xl p-5">
+              <h2 className="text-2xl font-semibold text-white mb-4 border-b border-white/10 pb-2">Details</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
+                {/* Career Section */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-[#3B00CC] uppercase tracking-wide">Career</h3>
+                  <div className="flex items-center gap-3 bg-white/6 backdrop-blur-sm p-3 rounded-lg">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/70">Profession</p>
+                      <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>
+                        {userData.questionnaireAnswers?.lifestyle_profession || userData.profession || 'Professional'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Relationship Section */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-[#3B00CC] uppercase tracking-wide">Relationship</h3>
+                  <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/70">Status</p>
+                      <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>Separated</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Lifestyle Section */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-[#3B00CC] uppercase tracking-wide">Lifestyle</h3>
+                  <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/70">Smoking</p>
+                      <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>
+                        {userData.questionnaireAnswers?.lifestyle_smoking || userData.smokingStatus || 'Non-smoker'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg mt-3">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/70">Drinking</p>
+                      <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>
+                        {userData.questionnaireAnswers?.lifestyle_drinking || userData.drinkingHabits || 'Social drinker'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Physical & Family Section */}
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium text-[#3B00CC] uppercase tracking-wide">Physical & Family</h3>
+                  <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/70">Height</p>
+                      <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>
+                        {userData.questionnaireAnswers?.physical_height || userData.height || '5\'10"'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg mt-3">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                      <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-xs text-white/70">Children</p>
+                      <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>
+                        {userData.questionnaireAnswers?.hasChildren === false ? 'No children' : 'Has children'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Interests section with pill boxes */}
+            <div className="mt-8 mb-4">
+              <h2 className="text-2xl font-semibold text-white mb-4">Interests</h2>
+              <div className="grid grid-cols-3 gap-2">
+                {userData.interests ? (
+                  userData.interests.map((interest, index) => (
+                    <div key={index} className="h-10 bg-white/90 text-[#3B00CC] rounded-full text-sm font-medium shadow-sm flex items-center justify-center">
+                      {interest}
+                    </div>
+                  ))
+                ) : (
+                  ['Reading', 'Travel', 'Fitness', 'Cooking', 'Movies'].map((interest, index) => (
+                    <div key={index} className="h-10 bg-white/90 text-[#3B00CC] rounded-full text-sm font-medium shadow-sm flex items-center justify-center">
+                      {interest}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            
+            {/* Personal Summary section */}
+            <div className="mt-8 mb-8">
+              <h2 className="text-2xl font-semibold text-white mb-4">Personal Summary</h2>
+              <div className="bg-white/10 backdrop-blur-md rounded-xl p-4">
+                <p className="text-white text-sm leading-relaxed" style={{fontFamily: inter.style.fontFamily}}>
+                  {userData.personalSummary || "Bob, you're an extroverted, spontaneous individual with a calm and grounded personality. You love reading, enjoy mixing things up, and have a high regard for health. As a lawyer, you've learned the importance of balance - between work and personal life, and also in relationships, where you appreciate a blend of independence and togetherness. You value self-awareness, empathy, and optimism in your partner and look for honesty above all. In relationships, you're all in, ready to support your partner financially while expecting the same degree of emotional connection. You're a person who addresses conflicts straight away and prefers to take the lead but makes decisions logically, considering all pros and cons. Physical attraction and intimacy are crucial to you, and you're open to your partner's choices in cosmetic enhancements. For you, it's important that your partner doesn't have children from previous relationships. You're comfortable with your partner's occasional social use of drugs or alcohol, provided it's respectful. You also value your alone time to recharge and handle stress."}
+                </p>
+                {!userData.personalSummary && (
+                  <button 
+                    onClick={handleGenerateSummary}
+                    disabled={isGeneratingSummary}
+                    className="mt-4 px-5 py-2.5 bg-[#34D8F1] text-white rounded-lg text-sm font-medium hover:bg-[#34D8F1]/80 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center w-full shadow-sm"
+                  >
+                    {isGeneratingSummary ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Generating...
+                      </>
+                    ) : 'Generate Summary'}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Gap to show background before navigation */}
+      <div className="h-28"></div>
+      
+      {/* Mobile Bottom Navigation */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 flex items-center justify-center py-2 px-4 bg-[#73FFF6]/95 backdrop-blur-xl border-t border-white/10">
+        <div className="flex gap-10">
+          {[
+            { id: 'dashboard', icon: (
+              <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+            )},
+            { id: 'messages', icon: (
+              <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+              </svg>
+            )},
+            { id: 'matches', icon: (
+              <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+              </svg>
+            )},
+            { id: 'profile', icon: (
+              <svg className="w-6 h-6" fill="#3B00CC" stroke="#3B00CC" strokeWidth="1" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+              </svg>
+            )}
+          ].map((item) => (
+            <button
+              key={item.id}
+              className={`p-2 rounded-lg transition-all ${
+                item.id === 'profile'
+                  ? 'bg-white/25 text-white'
+                  : 'text-white hover:text-white hover:bg-white/20'
+              }`}
+              onClick={() => {
+                router.push(`/${item.id === 'dashboard' ? '' : item.id}`);
+              }}
+            >
+              {item.icon}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

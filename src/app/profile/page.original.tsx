@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { inter, playfair } from '@/app/fonts';
 import { OrbField } from '@/app/components/gradients/OrbField';
-import { Tagline } from './Tagline';
 import { HomeOrbField } from '@/app/components/gradients/HomeOrbField';
 import { useAuth } from '@/context/AuthContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -139,26 +138,10 @@ export default function Profile() {
       </div>
       
       {/* Main container with very subtle side border */}
-      <div className="w-[95%] mx-auto bg-transparent h-full overflow-hidden relative z-10">
+      <div className="w-[85%] mx-auto bg-transparent h-full overflow-hidden relative z-10">
         {/* Desktop logo at top center */}
         <div className="hidden lg:flex lg:justify-center lg:mt-6 lg:mb-8">
-          <div className="flex flex-col items-center">
-            <div className="w-40 h-12 relative">
-              <Image 
-                src="/vettly-logo.png" 
-                alt="Vettly Logo"
-                fill
-                className="object-contain"
-                unoptimized
-              />
-            </div>
-            <Tagline />
-          </div>
-        </div>
-        
-        {/* Mobile only: Vettly logo */}
-        <div className="flex flex-col items-center justify-center mt-4 mb-6 lg:hidden">
-          <div className="w-32 h-10 relative">
+          <div className="w-52 h-16 relative">
             <Image 
               src="/vettly-logo.png" 
               alt="Vettly Logo"
@@ -167,8 +150,18 @@ export default function Profile() {
               unoptimized
             />
           </div>
-          <div className="w-full flex justify-center mt-1">
-            <Tagline />
+        </div>
+        
+        {/* Mobile only: Vettly logo */}
+        <div className="flex justify-center mt-4 mb-6 lg:hidden">
+          <div className="w-32 h-10 relative">
+            <Image 
+              src="/vettly-logo.png" 
+              alt="Vettly Logo"
+              fill
+              className="object-contain"
+              unoptimized
+            />
           </div>
         </div>
         
@@ -180,7 +173,7 @@ export default function Profile() {
             </svg>
           </button>
           
-          <div className="w-full aspect-[3/2.5] relative overflow-hidden rounded-t-[40px] mt-16">
+          <div className="w-full aspect-[3/2.5] relative overflow-hidden rounded-t-[40px]">
             <Image 
               src={userData.profilePhotoUrl || '/placeholder-profile.jpg'} 
               alt={`${userData.firstName}'s profile`}
@@ -192,7 +185,7 @@ export default function Profile() {
         </div>
         
         {/* Desktop layout: Two-column with profile on left */}
-        <div className="flex flex-col lg:flex-row lg:gap-12 lg:mt-8 lg:items-start lg:min-h-[calc(100vh-200px)] lg:py-12">
+        <div className="flex flex-col lg:flex-row lg:gap-12 lg:mt-0 lg:items-start lg:min-h-[calc(100vh-200px)] lg:py-0 lg:pt-12">
           {/* Left column: Profile picture and basic info - desktop only */}
           <div className="hidden lg:flex lg:flex-col lg:w-1/5 lg:self-start lg:pt-0">
             {/* Back button */}
@@ -205,7 +198,7 @@ export default function Profile() {
             </div>
             
             {/* Profile image */}
-            <div className="w-full aspect-square relative overflow-hidden rounded-[20px] lg:mt-[4.5rem]">
+            <div className="w-full aspect-square relative overflow-hidden rounded-[20px]">
               <Image 
                 src={userData.profilePhotoUrl || '/placeholder-profile.jpg'} 
                 alt={`${userData.firstName}'s profile`}
@@ -228,9 +221,9 @@ export default function Profile() {
           </div>
           
           {/* Right column: Main content */}
-          <div className="lg:w-4/5 lg:flex lg:flex-col lg:justify-start">
+          <div className="lg:w-4/5 lg:flex lg:flex-col lg:justify-start lg:pt-0">
             {/* Info section with glass morphism background */}
-            <div className="relative -mt-10 lg:mt-0 bg-white/15 backdrop-blur-md rounded-[40px] lg:rounded-[20px] flex-1 px-7 py-6 lg:mr-32">
+            <div className="relative -mt-10 lg:mt-0 bg-white/15 backdrop-blur-md rounded-[40px] lg:rounded-[20px] flex-1 px-7 py-6 lg:mr-4">
               {/* Mobile only: Name and location */}
               <div className="lg:hidden mb-4">
                 <div className="flex items-baseline">

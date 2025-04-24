@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { inter, playfair } from '@/app/fonts';
 import { OrbField } from '@/app/components/gradients/OrbField';
-import { Tagline } from './Tagline';
 import { HomeOrbField } from '@/app/components/gradients/HomeOrbField';
 import { useAuth } from '@/context/AuthContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -140,24 +139,8 @@ export default function Profile() {
       
       {/* Main container with very subtle side border */}
       <div className="w-[95%] mx-auto bg-transparent h-full overflow-hidden relative z-10">
-        {/* Desktop logo at top center */}
-        <div className="hidden lg:flex lg:justify-center lg:mt-6 lg:mb-8">
-          <div className="flex flex-col items-center">
-            <div className="w-40 h-12 relative">
-              <Image 
-                src="/vettly-logo.png" 
-                alt="Vettly Logo"
-                fill
-                className="object-contain"
-                unoptimized
-              />
-            </div>
-            <Tagline />
-          </div>
-        </div>
-        
         {/* Mobile only: Vettly logo */}
-        <div className="flex flex-col items-center justify-center mt-4 mb-6 lg:hidden">
+        <div className="flex justify-center mt-4 mb-6 lg:hidden">
           <div className="w-32 h-10 relative">
             <Image 
               src="/vettly-logo.png" 
@@ -166,9 +149,6 @@ export default function Profile() {
               className="object-contain"
               unoptimized
             />
-          </div>
-          <div className="w-full flex justify-center mt-1">
-            <Tagline />
           </div>
         </div>
         
@@ -180,7 +160,7 @@ export default function Profile() {
             </svg>
           </button>
           
-          <div className="w-full aspect-[3/2.5] relative overflow-hidden rounded-t-[40px] mt-16">
+          <div className="w-full aspect-[3/2.5] relative overflow-hidden rounded-t-[40px]">
             <Image 
               src={userData.profilePhotoUrl || '/placeholder-profile.jpg'} 
               alt={`${userData.firstName}'s profile`}
@@ -192,11 +172,11 @@ export default function Profile() {
         </div>
         
         {/* Desktop layout: Two-column with profile on left */}
-        <div className="flex flex-col lg:flex-row lg:gap-12 lg:mt-8 lg:items-start lg:min-h-[calc(100vh-200px)] lg:py-12">
+        <div className="flex flex-col lg:flex-row lg:gap-8">
           {/* Left column: Profile picture and basic info - desktop only */}
-          <div className="hidden lg:flex lg:flex-col lg:w-1/5 lg:self-start lg:pt-0">
+          <div className="hidden lg:flex lg:flex-col lg:w-1/4">
             {/* Back button */}
-            <div className="flex items-center mb-2 lg:mb-0">
+            <div className="flex items-center mb-4">
               <button onClick={() => router.back()} className="p-2 rounded-full bg-white/80 backdrop-blur-sm text-[#3B00CC] hover:bg-white transition-all">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -204,8 +184,21 @@ export default function Profile() {
               </button>
             </div>
             
+            {/* Desktop logo */}
+            <div className="flex justify-center mb-6">
+              <div className="w-32 h-10 relative">
+                <Image 
+                  src="/vettly-logo.png" 
+                  alt="Vettly Logo"
+                  fill
+                  className="object-contain"
+                  unoptimized
+                />
+              </div>
+            </div>
+            
             {/* Profile image */}
-            <div className="w-full aspect-square relative overflow-hidden rounded-[20px] lg:mt-[4.5rem]">
+            <div className="w-full aspect-square relative overflow-hidden rounded-[20px] lg:border-t-8 lg:border-blue-600">
               <Image 
                 src={userData.profilePhotoUrl || '/placeholder-profile.jpg'} 
                 alt={`${userData.firstName}'s profile`}
@@ -219,18 +212,18 @@ export default function Profile() {
             <div className="mt-4 bg-white/15 backdrop-blur-md rounded-[20px] p-4">
               <div className="flex flex-col">
                 <div className="flex items-baseline">
-                  <span className="text-[2rem] font-bold text-[#73FFF6]" style={{fontFamily: 'Georgia, serif'}}>{userData.firstName},</span>
-                  <span className="text-[1.5rem] text-[#73FFF6] ml-2" style={{fontFamily: 'Georgia, serif', position: 'relative', top: '-2px'}}>{userData.age || '39'}</span>
+                  <span className="text-[2rem] font-bold text-[#3B00CC]" style={{fontFamily: 'Georgia, serif'}}>{userData.firstName},</span>
+                  <span className="text-[1.5rem] text-[#3B00CC] ml-2" style={{fontFamily: 'Georgia, serif', position: 'relative', top: '-2px'}}>{userData.age || '39'}</span>
                 </div>
-                <p className="text-[#73FFF6] text-base mt-2 font-medium">{userData.questionnaireAnswers?.location || userData.location || `${userData.suburb || 'Sydney'}, ${userData.state || 'NSW'}`}</p>
+                <p className="text-[#3B00CC] text-base mt-2 font-medium">{userData.questionnaireAnswers?.location || userData.location || `${userData.suburb || 'Sydney'}, ${userData.state || 'NSW'}`}</p>
               </div>
             </div>
           </div>
           
           {/* Right column: Main content */}
-          <div className="lg:w-4/5 lg:flex lg:flex-col lg:justify-start">
+          <div className="lg:w-3/4">
             {/* Info section with glass morphism background */}
-            <div className="relative -mt-10 lg:mt-0 bg-white/15 backdrop-blur-md rounded-[40px] lg:rounded-[20px] flex-1 px-7 py-6 lg:mr-32">
+            <div className="relative -mt-10 lg:mt-0 bg-white/15 backdrop-blur-md rounded-[40px] lg:rounded-[20px] flex-1 px-7 py-6">
               {/* Mobile only: Name and location */}
               <div className="lg:hidden mb-4">
                 <div className="flex items-baseline">
@@ -241,9 +234,9 @@ export default function Profile() {
               </div>
               
               {/* Two-column layout for desktop */}
-              <div className="lg:grid lg:grid-cols-2 lg:gap-10 lg:items-start">
+              <div className="lg:grid lg:grid-cols-2 lg:gap-6">
                 {/* Column 1: Details */}
-                <div className="lg:flex lg:flex-col lg:justify-end">
+                <div>
                   {/* Details with icons */}
                   <div className="mb-6 bg-white/10 backdrop-blur-md rounded-2xl p-5">
                     <h2 className="text-2xl font-semibold text-white mb-4 border-b border-white/10 pb-2">Details</h2>
@@ -351,11 +344,11 @@ export default function Profile() {
                 </div>
                 
                 {/* Column 2: Interests and Personal Summary */}
-                <div className="lg:flex lg:flex-col lg:justify-end">
+                <div>
                   {/* Interests section with pill boxes */}
                   <div className="mt-8 lg:mt-0 mb-4">
                     <h2 className="text-2xl font-semibold text-white mb-4">Interests</h2>
-                    <div className="grid grid-cols-3 lg:grid-cols-2 gap-2 w-full">
+                    <div className="grid grid-cols-3 lg:grid-cols-2 gap-2">
                       {userData.interests ? (
                         userData.interests.map((interest, index) => (
                           <div key={index} className="h-10 bg-white/90 text-[#3B00CC] rounded-full text-sm font-medium shadow-sm flex items-center justify-center">
@@ -375,7 +368,7 @@ export default function Profile() {
                   {/* Personal Summary section */}
                   <div className="mt-8 mb-8">
                     <h2 className="text-2xl font-semibold text-white mb-4">Personal Summary</h2>
-                    <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 w-full">
+                    <div className="bg-white/10 backdrop-blur-md rounded-xl p-4">
                       <p className="text-white text-sm leading-relaxed" style={{fontFamily: inter.style.fontFamily}}>
                         {userData.personalSummary || "Bob, you're an extroverted, spontaneous individual with a calm and grounded personality. You love reading, enjoy mixing things up, and have a high regard for health. As a lawyer, you've learned the importance of balance - between work and personal life, and also in relationships, where you appreciate a blend of independence and togetherness. You value self-awareness, empathy, and optimism in your partner and look for honesty above all. In relationships, you're all in, ready to support your partner financially while expecting the same degree of emotional connection. You're a person who addresses conflicts straight away and prefers to take the lead but makes decisions logically, considering all pros and cons. Physical attraction and intimacy are crucial to you, and you're open to your partner's choices in cosmetic enhancements. For you, it's important that your partner doesn't have children from previous relationships. You're comfortable with your partner's occasional social use of drugs or alcohol, provided it's respectful. You also value your alone time to recharge and handle stress."}
                       </p>
@@ -407,48 +400,6 @@ export default function Profile() {
       
       {/* Gap to show background before navigation */}
       <div className="h-28"></div>
-      
-      {/* Desktop Side Navigation */}
-      <div className="hidden lg:flex fixed right-0 top-0 h-full flex-col items-center justify-center py-6 px-6 bg-[#73FFF6]/95 backdrop-blur-xl border-l border-white/20 z-50">
-        <div className="flex flex-col gap-10">
-          {[
-            { id: 'dashboard', icon: (
-              <svg className="w-8 h-8" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-            )},
-            { id: 'messages', icon: (
-              <svg className="w-8 h-8" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-              </svg>
-            )},
-            { id: 'matches', icon: (
-              <svg className="w-8 h-8" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-              </svg>
-            )},
-            { id: 'profile', icon: (
-              <svg className="w-8 h-8" fill="#3B00CC" stroke="#3B00CC" strokeWidth="1" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-              </svg>
-            )}
-          ].map((item) => (
-            <button
-              key={item.id}
-              className={`p-4 rounded-xl transition-all ${
-                item.id === 'profile'
-                  ? 'bg-white/25 text-white'
-                  : 'text-white hover:text-white hover:bg-white/20'
-              }`}
-              onClick={() => {
-                router.push(`/${item.id === 'dashboard' ? '' : item.id}`);
-              }}
-            >
-              {item.icon}
-            </button>
-          ))}
-        </div>
-      </div>
       
       {/* Mobile Bottom Navigation */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 flex items-center justify-center py-2 px-4 bg-[#73FFF6]/95 backdrop-blur-xl border-t border-white/10">

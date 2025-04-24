@@ -1,5 +1,5 @@
 // Simple script to check if environment variables are loaded
-require('dotenv').config();
+require('dotenv').config({ path: '.env.local' });
 
 console.log('Environment variables check:');
 console.log('OPENAI_API_KEY:', process.env.OPENAI_API_KEY ? 'Available (masked for security)' : 'Not available');

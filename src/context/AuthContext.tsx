@@ -143,13 +143,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
+    // Only run auth state listener on the client side and when auth is available
+    if (typeof window !== 'undefined' && auth) {
+      const unsubscribe = onAuthStateChanged(auth, (user) => {
+        setCurrentUser(user);
+        setLoading(false);
+      });
+      
+      return () => unsubscribe();
+    } else {
+      // If auth isn't available yet, just set loading to false
       setLoading(false);
-    });
-
-    return unsubscribe;
-  }, []);
+    }
+  }, [auth]);
 
   const value: AuthContextType = {
     currentUser,
