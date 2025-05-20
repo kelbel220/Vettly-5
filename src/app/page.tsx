@@ -45,7 +45,7 @@ export default function Home() {
             delay={0.1}
           />
           <AnimatedText 
-            text="DATING" 
+            text="MATCHMAKING" 
             className="text-7xl md:text-8xl font-black tracking-wider leading-none relative z-10"
             delay={0.3}
           />
@@ -78,7 +78,7 @@ export default function Home() {
           {/* Button moved up */}
           <div className="mt-10">
             <button 
-              className="group relative px-12 md:px-12 py-4 w-[55%] md:w-auto bg-[#8A2BE2] rounded-full overflow-hidden"
+              className="group relative px-12 md:px-12 py-4 w-[55%] md:w-auto bg-[#2800A3] rounded-full overflow-hidden"
               onClick={() => window.location.href = '/signup'}
             >
               <span className={`${inter.className} relative text-lg font-bold text-white`}>
