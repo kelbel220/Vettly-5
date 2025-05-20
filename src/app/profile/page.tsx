@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { WineIcon } from './WineIcon';
+import { SmokingIcon } from './SmokingIcon';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { inter, playfair } from '@/app/fonts';
@@ -28,6 +30,9 @@ interface UserProfile {
   location?: string;
   relationshipStatus?: string;
   children?: string;
+  childrenAges?: string;
+  hasChildren?: boolean;
+  numberOfChildren?: number;
   height?: string;
   smokingStatus?: string;
   drinkingHabits?: string;
@@ -71,6 +76,36 @@ export default function Profile() {
     }
   };
 
+  // Function to format children information
+  const formatChildrenInfo = (userData: any) => {
+    // Check if user has children
+    const hasChildren = userData.hasChildren || 
+                       (userData.questionnaireAnswers && userData.questionnaireAnswers.hasChildren);
+    
+    if (!hasChildren) {
+      return 'No children';
+    }
+    
+    // Try to get children details from various possible locations in the data
+    const childrenInfo = userData.childrenDetails || 
+                         userData.childrenAges || 
+                         (userData.questionnaireAnswers && userData.questionnaireAnswers.childrenAges);
+    
+    if (childrenInfo) {
+      return childrenInfo; // Return the formatted children info if it exists
+    }
+    
+    // If we have number of children but no details, try to generate basic info
+    const numberOfChildren = userData.numberOfChildren || 
+                            (userData.questionnaireAnswers && userData.questionnaireAnswers.numberOfChildren);
+    
+    if (numberOfChildren) {
+      return `Has ${numberOfChildren} children`;
+    }
+    
+    return 'Has children'; // Default fallback
+  };
+
   useEffect(() => {
     const fetchUserData = async () => {
       if (currentUser) {
@@ -79,7 +114,32 @@ export default function Profile() {
           const userSnap = await getDoc(userRef);
           
           if (userSnap.exists()) {
-            setUserData(userSnap.data() as UserProfile);
+            const userData = userSnap.data() as UserProfile;
+            
+            // Process children information
+            if (!userData.childrenAges && userData.hasChildren) {
+              // Try to fetch additional children data if needed
+              try {
+                const childrenRef = doc(db, 'userChildren', currentUser.uid);
+                const childrenSnap = await getDoc(childrenRef);
+                
+                if (childrenSnap.exists()) {
+                  const childrenData = childrenSnap.data();
+                  // Format children data in the desired format (e.g., "14yo Boy, 6yo Girl")
+                  if (childrenData.children && childrenData.children.length > 0) {
+                    const formattedChildren = childrenData.children
+                      .map((child: any) => `${child.age}yo ${child.gender}`)
+                      .join(', ');
+                    
+                    userData.childrenAges = formattedChildren;
+                  }
+                }
+              } catch (childrenError) {
+                console.error('Error fetching children data:', childrenError);
+              }
+            }
+            
+            setUserData(userData);
           } else {
             // Create a default user profile
             const defaultProfile: UserProfile = {
@@ -254,9 +314,10 @@ export default function Profile() {
                         <h3 className="text-sm font-medium text-[#3B00CC] uppercase tracking-wide">Career</h3>
                         <div className="flex items-center gap-3 bg-white/6 backdrop-blur-sm p-3 rounded-lg">
                           <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                            <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
+                            {/* Career: Briefcase icon */}
+<svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 7V6a3 3 0 013-3h6a3 3 0 013 3v1m2 0a2 2 0 012 2v9a2 2 0 01-2 2H4a2 2 0 01-2-2V9a2 2 0 012-2h16zm-6 4h.01" />
+</svg>
                           </div>
                           <div>
                             <p className="text-xs text-white/70">Profession</p>
@@ -272,6 +333,7 @@ export default function Profile() {
                         <h3 className="text-sm font-medium text-[#3B00CC] uppercase tracking-wide">Relationship</h3>
                         <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg">
                           <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                            {/* Relationship: Heart icon */}
                             <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                             </svg>
@@ -288,9 +350,8 @@ export default function Profile() {
                         <h3 className="text-sm font-medium text-[#3B00CC] uppercase tracking-wide">Lifestyle</h3>
                         <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg">
                           <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                            <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
+                            {/* Lifestyle: Smoking (premade icon) */}
+                            <SmokingIcon />
                           </div>
                           <div>
                             <p className="text-xs text-white/70">Smoking</p>
@@ -302,9 +363,8 @@ export default function Profile() {
                         
                         <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg mt-3">
                           <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
-                            <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
+                            {/* Lifestyle: Wine glass icon for Drinking */}
+                            <WineIcon />
                           </div>
                           <div>
                             <p className="text-xs text-white/70">Drinking</p>
@@ -320,8 +380,9 @@ export default function Profile() {
                         <h3 className="text-sm font-medium text-[#3B00CC] uppercase tracking-wide">Physical & Family</h3>
                         <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg">
                           <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                            {/* Physical & Family: Arrow Up icon for Height */}
                             <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
                             </svg>
                           </div>
                           <div>
@@ -334,6 +395,7 @@ export default function Profile() {
                         
                         <div className="flex items-center gap-3 bg-white/10 backdrop-blur-sm p-3 rounded-lg mt-3">
                           <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center">
+                            {/* Physical & Family: Family icon for Children */}
                             <svg className="h-5 w-5 text-[#3B00CC]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                             </svg>
@@ -341,7 +403,7 @@ export default function Profile() {
                           <div>
                             <p className="text-xs text-white/70">Children</p>
                             <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>
-                              {userData.questionnaireAnswers?.hasChildren === false ? 'No children' : 'Has children'}
+                              {userData ? formatChildrenInfo(userData) : 'Loading...'}
                             </p>
                           </div>
                         </div>
@@ -409,7 +471,7 @@ export default function Profile() {
       <div className="h-28"></div>
       
       {/* Desktop Side Navigation */}
-      <div className="hidden lg:flex fixed right-0 top-0 h-full flex-col items-center justify-center py-6 px-6 bg-[#73FFF6]/95 backdrop-blur-xl border-l border-white/20 z-50">
+      <div className="hidden lg:flex fixed right-0 top-0 h-full flex-col items-center justify-center py-6 px-3 bg-[#73FFF6]/95 backdrop-blur-xl border-l border-white/20 z-50">
         <div className="flex flex-col gap-10">
           {[
             { id: 'dashboard', icon: (

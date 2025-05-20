@@ -199,9 +199,9 @@ export default function Dashboard() {
               <Image
                 src="/vettly-logo.png"
                 alt="Vettly Logo"
-                width={180}
-                height={45}
-                className="h-auto w-auto"
+                width={120}
+                height={30}
+                className=""
                 priority
               />
             </div>
