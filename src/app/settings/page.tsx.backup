@@ -1,0 +1,921 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { OrbField } from '../components/gradients/OrbField';
+import Image from 'next/image';
+import { inter } from '../fonts';
+import { useAuth } from '@/context/AuthContext';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase-init';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, Home, UserCircle, Bell, CreditCard, Shield, HelpCircle, LogOut } from 'lucide-react';
+import StripeProvider from '../components/payments/StripeProvider';
+import StripePaymentForm from '../components/payments/StripePaymentForm';
+
+interface UserData {
+  firstName: string;
+  lastName: string;
+  profilePhotoUrl: string;
+  email: string;
+  membershipStatus: string;
+  membershipType: string;
+  billingCycle: string;
+  nextBillingDate: string;
+  notificationPreferences?: {
+    email: boolean;
+    push: boolean;
+    sms: boolean;
+  };
+  paymentMethods?: Array<{
+    id: string;
+    last4: string;
+    brand: string;
+    expMonth: number;
+    expYear: number;
+    isDefault: boolean;
+  }>;
+}
+
+export default function Settings() {
+  const { currentUser, logout } = useAuth();
+  const router = useRouter();
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeSection, setActiveSection] = useState('membership');
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const [confirmPause, setConfirmPause] = useState(false);
+  const [pauseDuration, setPauseDuration] = useState('1');
+  const [showAddPayment, setShowAddPayment] = useState(false);
+  const [showChangePlan, setShowChangePlan] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<string>('');
+  const [notificationPrefs, setNotificationPrefs] = useState({
+    email: true,
+    push: true,
+    sms: false
+  });
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (currentUser) {
+        try {
+          const userRef = doc(db, 'users', currentUser.uid);
+          const userSnap = await getDoc(userRef);
+          
+          if (userSnap.exists()) {
+            const data = userSnap.data() as UserData;
+            setUserData({
+              ...data,
+              // Default values for demo
+              membershipStatus: data.membershipStatus || 'active',
+              membershipType: data.membershipType || 'premium',
+              billingCycle: data.billingCycle || 'monthly',
+              nextBillingDate: data.nextBillingDate || '2025-06-20',
+              notificationPreferences: data.notificationPreferences || {
+                email: true,
+                push: true,
+                sms: false
+              },
+              paymentMethods: data.paymentMethods || [
+                {
+                  id: 'pm_123456789',
+                  last4: '4242',
+                  brand: 'visa',
+                  expMonth: 12,
+                  expYear: 25,
+                  isDefault: true
+                }
+              ]
+            });
+            
+            if (data.notificationPreferences) {
+              setNotificationPrefs(data.notificationPreferences);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+        }
+      }
+      setIsLoading(false);
+    };
+
+    fetchUserData();
+  }, [currentUser]);
+
+  const handleSignOut = async () => {
+    await logout();
+    router.push('/login');
+  };
+
+  const handlePauseMembership = async () => {
+    if (!currentUser) return;
+    
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, {
+        membershipStatus: 'paused',
+        pauseEndDate: new Date(Date.now() + parseInt(pauseDuration) * 30 * 24 * 60 * 60 * 1000).toISOString()
+      });
+      
+      setUserData(prev => prev ? {
+        ...prev,
+        membershipStatus: 'paused'
+      } : null);
+      
+      setConfirmPause(false);
+    } catch (error) {
+      console.error('Error pausing membership:', error);
+    }
+  };
+
+  const handleCancelMembership = async () => {
+    if (!currentUser) return;
+    
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, {
+        membershipStatus: 'cancelled'
+      });
+      
+      setUserData(prev => prev ? {
+        ...prev,
+        membershipStatus: 'cancelled'
+      } : null);
+      
+      setConfirmCancel(false);
+    } catch (error) {
+      console.error('Error cancelling membership:', error);
+    }
+  };
+
+  const handleNotificationChange = async (type: 'email' | 'push' | 'sms', value: boolean) => {
+    if (!currentUser) return;
+    
+    const newPrefs = {
+      ...notificationPrefs,
+      [type]: value
+    };
+    
+    setNotificationPrefs(newPrefs);
+    
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, {
+        notificationPreferences: newPrefs
+      });
+    } catch (error) {
+      console.error('Error updating notification preferences:', error);
+    }
+  };
+
+  const handleAddPaymentMethod = async (paymentMethod: any) => {
+    if (!currentUser || !userData) return;
+    
+    try {
+      // In a real app, you would send this to your backend to process and store securely
+      // For demo purposes, we'll just update the local state
+      const newPaymentMethod = {
+        id: paymentMethod.id,
+        last4: paymentMethod.card.last4,
+        brand: paymentMethod.card.brand,
+        expMonth: paymentMethod.card.exp_month,
+        expYear: paymentMethod.card.exp_year,
+        isDefault: userData.paymentMethods?.length === 0
+      };
+      
+      const updatedPaymentMethods = [
+        ...(userData.paymentMethods || []),
+        newPaymentMethod
+      ];
+      
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, {
+        paymentMethods: updatedPaymentMethods
+      });
+      
+      setUserData(prev => prev ? {
+        ...prev,
+        paymentMethods: updatedPaymentMethods
+      } : null);
+      
+      setShowAddPayment(false);
+    } catch (error) {
+      console.error('Error adding payment method:', error);
+    }
+  };
+
+  const handleChangePlan = async (plan: string) => {
+    if (!currentUser || !userData) return;
+    
+    try {
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, {
+        membershipType: plan
+      });
+      
+      setUserData(prev => prev ? {
+        ...prev,
+        membershipType: plan
+      } : null);
+      
+      setShowChangePlan(false);
+      setSelectedPlan('');
+    } catch (error) {
+      console.error('Error changing plan:', error);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="relative min-h-screen w-full overflow-x-hidden">
+        <div className="fixed inset-0 w-full h-full" style={{ background: 'linear-gradient(to bottom right, #2800A3, #34D8F1)', zIndex: -10 }}>
+          <div className="absolute inset-0 bg-gradient-to-br from-[#34D8F1]/20 via-transparent to-[#34D8F1]/20" />
+          <div className="absolute inset-0 overflow-hidden">
+            <OrbField />
+          </div>
+        </div>
+        <div className="relative z-10 flex flex-col items-center justify-center h-full">
+          <div className="w-64 h-64 rounded-full bg-white/10 animate-pulse mb-8" />
+          <div className="h-8 w-64 bg-white/10 animate-pulse mb-4 rounded" />
+          <div className="h-4 w-48 bg-white/10 animate-pulse rounded" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative min-h-screen w-full overflow-x-hidden flex flex-col lg:flex-row">
+      {/* Change Plan Modal */}
+      {showChangePlan && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          {/* Animated background */}
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#2800A3] to-[#34D8F1] opacity-30"></div>
+            <div className="absolute inset-0 bg-[url('/noise.png')] opacity-10"></div>
+            <div className="absolute -inset-[100%] animate-[spin_60s_linear_infinite] opacity-30">
+              <div className="absolute top-1/4 left-1/4 w-full h-full bg-gradient-to-br from-[#2800A3] to-transparent rounded-full blur-3xl"></div>
+              <div className="absolute bottom-1/4 right-1/3 w-2/3 h-2/3 bg-gradient-to-br from-[#34D8F1] to-transparent rounded-full blur-3xl"></div>
+            </div>
+          </div>
+          
+          {/* Modal backdrop */}
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowChangePlan(false)}></div>
+          
+          {/* Modal container */}
+          <div className="relative max-w-5xl w-full mx-4 z-10">
+            <div className="relative bg-gradient-to-br from-[#2800A3]/80 to-[#34D8F1]/80 p-px rounded-2xl overflow-hidden shadow-2xl">
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-md"></div>
+              
+              <div className="relative bg-[#0F172A]/70 backdrop-blur-md rounded-2xl p-8 text-white overflow-hidden">
+                {/* Glass reflections */}
+                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
+                <div className="absolute top-0 bottom-0 left-0 w-px bg-gradient-to-b from-white/30 via-transparent to-transparent"></div>
+                
+                <button 
+                  onClick={() => setShowChangePlan(false)} 
+                  className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+                
+                <h3 className={`text-2xl font-bold mb-8 text-center bg-gradient-to-r from-[#34D8F1] to-[#2800A3] inline-block text-transparent bg-clip-text w-full ${inter.className}`}>Choose Your Membership</h3>
+              
+              <div className="grid md:grid-cols-2 gap-6 mb-8">
+                {/* Standard Plan */}
+                <div 
+                  onClick={() => {
+                    console.log('Standard plan selected');
+                    setSelectedPlan('standard');
+                  }}
+                  className={`relative overflow-hidden rounded-xl cursor-pointer transition-all duration-300 ${selectedPlan === 'standard' ? 'ring-1 ring-[#34D8F1] scale-[1.02] shadow-lg shadow-[#34D8F1]/20' : 'hover:scale-[1.01] hover:shadow-md'}`}
+                >
+                  <div className="relative bg-[#0F172A]/50 backdrop-blur-sm p-6 h-full flex flex-col border border-white/5 rounded-xl overflow-hidden">
+                    {/* Glass reflections */}
+                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                    <div className="absolute top-0 bottom-0 left-0 w-px bg-gradient-to-b from-white/20 via-transparent to-transparent"></div>
+                    
+                    {/* Glow effect */}
+                    {selectedPlan === 'standard' && (
+                      <div className="absolute -inset-1 bg-[#34D8F1]/20 blur-xl rounded-full"></div>
+                    )}
+                    
+                    <div className="flex justify-between items-center mb-4 relative">
+                      <h4 className={`text-lg font-medium text-white ${inter.className}`}>Standard Matchmaker</h4>
+                      {selectedPlan === 'standard' && (
+                        <span className="bg-[#34D8F1] text-white text-xs px-2 py-1 rounded-full">Selected</span>
+                      )}
+                    </div>
+                    
+                    <div className="mb-6 relative">
+                      <span className={`text-4xl font-bold text-[#34D8F1] ${inter.className}`}>$39</span>
+                      <p className={`text-sm text-white/70 ${inter.className}`}>Per month</p>
+                    </div>
+                    
+                    <div className="flex-grow relative">
+                      <ul className={`space-y-3 ${inter.className}`}>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#34D8F1]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#34D8F1]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">1 × personalised match provided monthly</span>
+                        </li>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#34D8F1]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#34D8F1]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">Completely hands off service</span>
+                        </li>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#34D8F1]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#34D8F1]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">No endless messaging, just face to face date</span>
+                        </li>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#34D8F1]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#34D8F1]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">No public profiles</span>
+                        </li>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#34D8F1]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#34D8F1]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">Every match is vetted</span>
+                        </li>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#34D8F1]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#34D8F1]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">Dedicated matchmaker</span>
+                        </li>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#34D8F1]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#34D8F1]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">Apply & join for free</span>
+                        </li>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#34D8F1]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#34D8F1]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">Cancel & pause anytime</span>
+                        </li>
+                      </ul>
+                      
+                      <div className="mt-5 pt-4 border-t border-white/10">
+                        <p className={`text-xs text-white/70 ${inter.className}`}>
+                          <span className="font-medium text-[#34D8F1]">Note:</span> First month is $69 (includes screening interview)
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-6 relative">
+                      <button 
+                        onClick={() => setSelectedPlan('standard')}
+                        className={`w-full py-3 rounded-lg transition-all relative overflow-hidden ${selectedPlan === 'standard' ? 'bg-[#34D8F1] text-white' : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'} ${inter.className}`}
+                      >
+                        {selectedPlan === 'standard' && (
+                          <div className="absolute inset-0 bg-gradient-to-r from-[#34D8F1]/80 to-[#34D8F1] animate-pulse-slow"></div>
+                        )}
+                        <span className="relative">{selectedPlan === 'standard' ? 'Selected' : 'Select Standard'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Premium Plan */}
+                <div 
+                  onClick={() => {
+                    console.log('Premium plan selected');
+                    setSelectedPlan('premium');
+                  }}
+                  className={`relative overflow-hidden rounded-xl cursor-pointer transition-all duration-300 ${selectedPlan === 'premium' ? 'ring-1 ring-[#2800A3] scale-[1.02] shadow-lg shadow-[#2800A3]/20' : 'hover:scale-[1.01] hover:shadow-md'}`}
+                >
+                  <div className="relative bg-[#0F172A]/50 backdrop-blur-sm p-6 h-full flex flex-col border border-white/5 rounded-xl overflow-hidden">
+                    {/* Glass reflections */}
+                    <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
+                    <div className="absolute top-0 bottom-0 left-0 w-px bg-gradient-to-b from-white/20 via-transparent to-transparent"></div>
+                    
+                    {/* Glow effect */}
+                    {selectedPlan === 'premium' && (
+                      <div className="absolute -inset-1 bg-[#2800A3]/20 blur-xl rounded-full"></div>
+                    )}
+                    
+                    <div className="flex justify-between items-center mb-4 relative">
+                      <h4 className={`text-lg font-medium text-white ${inter.className}`}>Priority Matchmaker</h4>
+                      {selectedPlan === 'premium' && (
+                        <span className="bg-[#2800A3] text-white text-xs px-2 py-1 rounded-full">Selected</span>
+                      )}
+                    </div>
+                    
+                    <div className="mb-6 relative">
+                      <span className={`text-4xl font-bold text-[#2800A3] ${inter.className}`}>$49</span>
+                      <p className={`text-sm text-white/70 ${inter.className}`}>Per month</p>
+                    </div>
+                    
+                    <div className="flex-grow relative">
+                      <ul className={`space-y-3 ${inter.className}`}>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#2800A3]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#2800A3]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">2 × personalised matches provided monthly</span>
+                        </li>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#2800A3]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#2800A3]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">Completely hands off service</span>
+                        </li>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#2800A3]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#2800A3]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">No endless messaging, just face to face dates</span>
+                        </li>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#2800A3]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#2800A3]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">Every match is vetted</span>
+                        </li>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#2800A3]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#2800A3]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">Priority access to matches</span>
+                        </li>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#2800A3]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#2800A3]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">No public profiles</span>
+                        </li>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#2800A3]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#2800A3]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">Dedicated matchmaker</span>
+                        </li>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#2800A3]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#2800A3]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">Business consulting</span>
+                        </li>
+                        <li className="flex items-center">
+                          <div className="w-5 h-5 mr-3 rounded-full bg-[#2800A3]/20 flex items-center justify-center flex-shrink-0">
+                            <svg className="w-3.5 h-3.5 text-[#2800A3]" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <span className="text-white/90">Apply & join for free</span>
+                        </li>
+                      </ul>
+                      
+                      <div className="mt-5 pt-4 border-t border-white/10">
+                        <p className={`text-xs text-white/70 ${inter.className}`}>
+                          <span className="font-medium text-[#2800A3]">Note:</span> First month is $79 (includes screening interview)
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-6 relative">
+                      <button 
+                        onClick={() => setSelectedPlan('premium')}
+                        className={`w-full py-3 rounded-lg transition-all relative overflow-hidden ${selectedPlan === 'premium' ? 'bg-[#2800A3] text-white' : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'} ${inter.className}`}
+                      >
+                        {selectedPlan === 'premium' && (
+                          <div className="absolute inset-0 bg-gradient-to-r from-[#2800A3]/80 to-[#2800A3] animate-pulse-slow"></div>
+                        )}
+                        <span className="relative">{selectedPlan === 'premium' ? 'Selected' : 'Select Premium'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end space-x-4 mt-8 border-t border-white/10 pt-6">
+                <button 
+                  onClick={() => setShowChangePlan(false)}
+                  className={`px-6 py-2 rounded-lg bg-white/10 text-white/80 hover:bg-white/20 transition-all backdrop-blur-sm border border-white/10 relative overflow-hidden ${inter.className}`}
+                >
+                  <div className="absolute inset-0 bg-white/5 opacity-0 hover:opacity-100 transition-opacity"></div>
+                  <span className="relative">Cancel</span>
+                </button>
+                <button 
+                  onClick={() => {
+                    console.log('Confirm change clicked with plan:', selectedPlan);
+                    handleChangePlan(selectedPlan);
+                  }}
+                  disabled={!selectedPlan}
+                  className={`px-6 py-2 rounded-lg bg-gradient-to-r from-[#2800A3] to-[#34D8F1] text-white hover:from-[#2800A3]/90 hover:to-[#34D8F1]/90 transition-all shadow-lg shadow-[#2800A3]/20 backdrop-blur-sm relative overflow-hidden ${inter.className} ${!selectedPlan ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  <div className="absolute inset-0 bg-white/10 opacity-0 hover:opacity-100 transition-opacity"></div>
+                  <span className="relative">Confirm Change</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Background */}
+      <div className="fixed inset-0 w-full h-full" style={{ background: 'linear-gradient(to bottom right, #2800A3, #34D8F1)', zIndex: -10 }}>
+        <div className="absolute inset-0 bg-gradient-to-br from-[#34D8F1]/20 via-transparent to-[#34D8F1]/20" />
+        <div className="absolute inset-0 overflow-hidden">
+          <OrbField />
+        </div>
+      </div>
+      
+      {/* Main Content Area */}
+      <main className="flex-1 relative z-10 overflow-hidden flex flex-col pb-[80px] lg:pb-0 pt-8">
+        {/* Content Container */}
+        <div className="relative h-full z-10">
+          <div className="h-full overflow-y-auto px-4 py-8 pt-8">
+            {/* Logo */}
+            <div className="flex justify-center items-center w-full mb-20 -mt-4">
+              <div className="flex justify-center w-full">
+                <Image
+                  src="/vettly-logo.png"
+                  alt="Vettly Logo"
+                  width={120}
+                  height={30}
+                  priority
+                />
+              </div>
+            </div>
+
+            {/* Header with Back Button */}
+            <div className="flex items-center justify-center mb-12 relative w-full">
+              <button 
+                onClick={() => router.push('/dashboard')}
+                className="text-white absolute left-0"
+              >
+                <ArrowLeft className="h-6 w-6" />
+              </button>
+              <h1 className="text-4xl font-bold text-white text-center w-full">Settings</h1>
+            </div>
+
+            {/* Settings Content */}
+            <div className="max-w-4xl mx-auto">
+              {/* Settings Navigation */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 mb-8">
+                <div className="flex flex-wrap justify-center items-center gap-4">
+                  <button
+                    onClick={() => setActiveSection('membership')}
+                    className={`px-6 py-2 rounded-xl transition-colors ${activeSection === 'membership' ? 'bg-[#3B00CC] text-white' : 'text-white/80 hover:bg-white/10'} ${inter.className}`}
+                  >
+                    Membership
+                  </button>
+                  <button
+                    onClick={() => setActiveSection('payment')}
+                    className={`px-6 py-2 rounded-xl transition-colors ${activeSection === 'payment' ? 'bg-[#3B00CC] text-white' : 'text-white/80 hover:bg-white/10'} ${inter.className}`}
+                  >
+                    Payment
+                  </button>
+                  <button
+                    onClick={() => setActiveSection('help')}
+                    className={`px-6 py-2 rounded-xl transition-colors ${activeSection === 'help' ? 'bg-[#3B00CC] text-white' : 'text-white/80 hover:bg-white/10'} ${inter.className}`}
+                  >
+                    Help
+                  </button>
+                </div>
+              </div>
+
+              {/* Active Section Content */}
+              <div className="bg-white/20 backdrop-blur-md rounded-2xl p-6">
+                {activeSection === 'membership' && (
+                  <div>
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="p-2 bg-white/5 rounded-xl">
+                        <CreditCard className="w-5 h-5 text-[#3B00CC]/70" />
+                      </div>
+                      <h3 className="text-xl text-white">Membership Settings</h3>
+                    </div>
+
+                    <div className="bg-white/10 rounded-xl p-4 mb-6">
+                      <div className="flex justify-between items-center mb-4">
+                        <span className={`text-white text-lg ${inter.className}`}>Current Plan</span>
+                        <div className="flex items-center gap-3">
+                          <span className={`text-white font-semibold capitalize ${inter.className}`}>{userData?.membershipType || 'Premium'}</span>
+                          <button 
+                            onClick={() => {
+                              console.log('Change Plan clicked');
+                              setShowChangePlan(true);
+                            }}
+                            className={`px-3 py-1 text-sm bg-[#3B00CC]/80 text-white rounded-lg hover:bg-[#3B00CC] transition-colors ${inter.className}`}
+                          >
+                            Change Plan
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className={`text-white ${inter.className}`}>Status</span>
+                        <span className={`font-semibold capitalize ${inter.className} ${
+                          userData?.membershipStatus === 'active' ? 'text-[#5A17E0]' :
+                          userData?.membershipStatus === 'paused' ? 'text-yellow-400' :
+                          'text-red-400'
+                        }`}>
+                          {userData?.membershipStatus || 'Active'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className={`text-white ${inter.className}`}>Billing Cycle</span>
+                        <span className={`text-white font-semibold capitalize ${inter.className}`}>{userData?.billingCycle || 'Monthly'}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className={`text-white ${inter.className}`}>Next Billing Date</span>
+                        <span className={`text-white font-semibold ${inter.className}`}>{userData?.nextBillingDate || '2025-06-20'}</span>
+                      </div>
+                    </div>
+
+                    {userData?.membershipStatus === 'active' && (
+                      <div className="space-y-4">
+                        <button
+                          onClick={() => setConfirmPause(true)}
+                          className={`w-full py-3 px-4 rounded-xl bg-[#3B00CC]/90 text-white font-medium hover:bg-[#3B00CC] transition-colors ${inter.className}`}
+                        >
+                          Pause Membership
+                        </button>
+                        <button
+                          onClick={() => setConfirmCancel(true)}
+                          className={`w-full py-3 px-4 rounded-xl bg-[#34D8F1] text-white font-medium hover:bg-[#34D8F1]/90 transition-colors border-2 border-white/30 ${inter.className}`}
+                        >
+                          Cancel Membership
+                        </button>
+                      </div>
+                    )}
+
+                    {userData?.membershipStatus === 'paused' && (
+                      <button
+                        onClick={async () => {
+                          if (!currentUser) return;
+                          try {
+                            const userRef = doc(db, 'users', currentUser.uid);
+                            await updateDoc(userRef, {
+                              membershipStatus: 'active',
+                              pauseEndDate: null
+                            });
+                            
+                            setUserData(prev => prev ? {
+                              ...prev,
+                              membershipStatus: 'active'
+                            } : null);
+                          } catch (error) {
+                            console.error('Error resuming membership:', error);
+                          }
+                        }}
+                        className="w-full py-3 px-4 rounded-xl bg-[#3B00CC]/80 text-white font-medium hover:bg-[#3B00CC] transition-colors"
+                      >
+                        Resume Membership
+                      </button>
+                    )}
+
+                    {userData?.membershipStatus === 'cancelled' && (
+                      <button
+                        onClick={() => router.push('/signup')}
+                        className="w-full py-3 px-4 rounded-xl bg-[#3B00CC] text-white font-medium hover:bg-[#3B00CC]/90 transition-colors"
+                      >
+                        Reactivate Membership
+                      </button>
+                    )}
+
+                    {/* Pause Membership Modal */}
+                    {confirmPause && (
+                      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+                          <h3 className="text-xl font-bold text-gray-800 mb-4">Pause Your Membership</h3>
+                          <p className="text-gray-600 mb-6">
+                            Your membership will be paused and you won't be charged during this period. You can resume anytime.
+                          </p>
+                          <div className="mb-4">
+                            <label className="block text-gray-700 mb-2">Pause Duration</label>
+                            <select 
+                              value={pauseDuration}
+                              onChange={(e) => setPauseDuration(e.target.value)}
+                              className="w-full p-2 border border-gray-300 rounded-lg"
+                            >
+                              <option value="1">1 Month</option>
+                              <option value="2">2 Months</option>
+                              <option value="3">3 Months</option>
+                            </select>
+                          </div>
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => setConfirmPause(false)}
+                              className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={handlePauseMembership}
+                              className="flex-1 py-2 px-4 bg-[#3B00CC] rounded-lg text-white hover:bg-[#3B00CC]/90"
+                            >
+                              Pause Membership
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Cancel Membership Modal */}
+                    {confirmCancel && (
+                      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4">
+                          <h3 className="text-xl font-bold text-gray-800 mb-4">Cancel Your Membership</h3>
+                          <p className="text-gray-600 mb-6">
+                            Are you sure you want to cancel your membership? You'll lose access to all premium features.
+                          </p>
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => setConfirmCancel(false)}
+                              className="flex-1 py-2 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                            >
+                              Keep Membership
+                            </button>
+                            <button
+                              onClick={handleCancelMembership}
+                              className="flex-1 py-2 px-4 bg-[#34D8F1] rounded-lg text-white hover:bg-[#34D8F1]/90 border border-white/30"
+                            >
+                              Cancel Membership
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeSection === 'payment' && (
+                  <div>
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="p-2 bg-white/5 rounded-xl">
+                        <CreditCard className="w-5 h-5 text-[#3B00CC]/70" />
+                      </div>
+                      <h3 className="text-xl text-white">Payment Methods</h3>
+                    </div>
+
+                    {userData?.paymentMethods && userData.paymentMethods.length > 0 ? (
+                      <div className="space-y-4 mb-6">
+                        {userData.paymentMethods.map((method) => (
+                          <div key={method.id} className="bg-white/10 rounded-xl p-4">
+                            <div className="flex justify-between items-center">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-white/20 rounded-lg">
+                                  {method.brand === 'visa' ? (
+                                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
+                                      <rect x="2" y="5" width="20" height="14" rx="2" stroke="white" strokeWidth="2" />
+                                      <path d="M2 10H22" stroke="white" strokeWidth="2" />
+                                    </svg>
+                                  ) : method.brand === 'mastercard' ? (
+                                    <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
+                                      <circle cx="9" cy="12" r="6" fill="none" stroke="white" strokeWidth="2" />
+                                      <circle cx="15" cy="12" r="6" fill="none" stroke="white" strokeWidth="2" />
+                                    </svg>
+                                  ) : (
+                                    <CreditCard className="w-6 h-6 text-white" />
+                                  )}
+                                </div>
+                                <div>
+                                  <p className={`text-white font-medium ${inter.className}`}>•••• •••• •••• {method.last4}</p>
+                                  <p className={`text-white/70 text-sm ${inter.className}`}>Expires {method.expMonth}/{method.expYear}</p>
+                                </div>
+                              </div>
+                              {method.isDefault && (
+                                <span className={`text-white/80 text-sm bg-white/10 px-2 py-1 rounded ${inter.className}`}>Default</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="bg-white/10 rounded-xl p-4 mb-6">
+                        <p className={`text-white text-center ${inter.className}`}>No payment methods added yet.</p>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => setShowAddPayment(true)}
+                      className={`w-full py-3 px-4 rounded-xl bg-[#3B00CC]/80 text-white font-medium hover:bg-[#3B00CC] transition-colors ${inter.className}`}
+                    >
+                      Add Payment Method
+                    </button>
+                    
+                    {/* Stripe Payment Form Modal */}
+                    {showAddPayment && (
+                      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                        <StripeProvider>
+                          <StripePaymentForm 
+                            onSuccess={handleAddPaymentMethod}
+                            onCancel={() => setShowAddPayment(false)}
+                          />
+                        </StripeProvider>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+
+
+                {activeSection === 'help' && (
+                  <div>
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="p-2 bg-white/5 rounded-xl">
+                        <HelpCircle className="w-5 h-5 text-[#3B00CC]/70" />
+                      </div>
+                      <h3 className="text-xl text-white">Help & Support</h3>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="bg-white/10 rounded-xl p-4">
+                        <h4 className="text-white font-medium mb-2">Frequently Asked Questions</h4>
+                        <div className="space-y-3">
+                          <div className="bg-white/10 p-3 rounded-lg">
+                            <p className="text-white font-medium">How do I update my profile?</p>
+                            <p className="text-white/80 text-sm mt-1">
+                              You can update your profile by going to the Profile tab and clicking on the Edit Profile button.
+                            </p>
+                          </div>
+                          <div className="bg-white/10 p-3 rounded-lg">
+                            <p className="text-white font-medium">How do I change my password?</p>
+                            <p className="text-white/80 text-sm mt-1">
+                              You can change your password in the Privacy settings section.
+                            </p>
+                          </div>
+                          <div className="bg-white/10 p-3 rounded-lg">
+                            <p className="text-white font-medium">How do I cancel my subscription?</p>
+                            <p className="text-white/80 text-sm mt-1">
+                              You can cancel your subscription in the Membership settings section.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="bg-white/10 rounded-xl p-4">
+                        <h4 className="text-white font-medium mb-2">Contact Support</h4>
+                        <p className="text-white/80 mb-4">
+                          Need help with something specific? Our support team is here to help.
+                        </p>
+                        <button className="w-full py-3 px-4 rounded-xl bg-[#3B00CC]/80 text-white font-medium hover:bg-[#3B00CC] transition-colors">
+                          Contact Support
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Sign Out Button */}
+              <div className="mt-8 text-center">
+                <button
+                  onClick={handleSignOut}
+                  className="text-white/70 hover:text-white transition-colors flex items-center gap-2 mx-auto"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Sign Out</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+      
+      {/* No mobile navigation bar */}
+    </div>
+  );
+}
