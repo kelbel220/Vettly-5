@@ -9,7 +9,8 @@ import {
   User,
   GoogleAuthProvider,
   signInWithPopup,
-  Auth
+  Auth,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase-init';
@@ -21,6 +22,7 @@ export interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signupWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
 }
 
 interface SignupData {
@@ -141,6 +143,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   function logout() {
     return signOut(auth);
   }
+  
+  async function resetPassword(email: string) {
+    try {
+      await sendPasswordResetEmail(auth, email);
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      if (error?.code === 'auth/user-not-found') {
+        throw new Error('No account found with this email address');
+      } else if (error?.code === 'auth/invalid-email') {
+        throw new Error('Invalid email address');
+      } else {
+        throw new Error(`Password reset error: ${error?.message || 'Unknown error occurred'}`);
+      }
+    }
+  }
 
   useEffect(() => {
     // Only run auth state listener on the client side and when auth is available
@@ -163,7 +180,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signup,
     signupWithGoogle,
     login,
-    logout
+    logout,
+    resetPassword
   };
 
   return (
