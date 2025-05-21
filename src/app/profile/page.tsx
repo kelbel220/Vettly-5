@@ -40,13 +40,83 @@ interface UserProfile {
   interests?: string[];
 }
 
+interface EditFormData extends Partial<UserProfile> {
+  interestsInput?: string;
+}
+
 export default function Profile() {
   const router = useRouter();
   const { currentUser } = useAuth();
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState<EditFormData>({});
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Initialize edit form data when modal opens
+  const initializeEditForm = () => {
+    if (!userData) return;
+    
+    setEditFormData({
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      age: userData.age,
+      suburb: userData.suburb || '',
+      state: userData.state || '',
+      profession: userData.profession || userData?.questionnaireAnswers?.lifestyle_profession || '',
+      relationshipStatus: userData.relationshipStatus || '',
+      height: userData.height || userData?.questionnaireAnswers?.physical_height || '',
+      smokingStatus: userData.smokingStatus || userData?.questionnaireAnswers?.lifestyle_smoking || '',
+      drinkingHabits: userData.drinkingHabits || userData?.questionnaireAnswers?.lifestyle_drinking || '',
+      hasChildren: userData.hasChildren,
+      childrenAges: userData.childrenAges || '',
+      interests: userData.interests || [],
+      personalSummary: userData.personalSummary || ''
+    });
+  };
 
+  const handleEditProfile = async () => {
+    if (!currentUser) return;
+    
+    setIsSaving(true);
+    try {
+      // Create a clean data object without the interestsInput field
+      const { interestsInput, ...dataToUpdate } = editFormData;
+      
+      // Format location from suburb and state if both are provided
+      if (dataToUpdate.suburb && dataToUpdate.state) {
+        dataToUpdate.location = `${dataToUpdate.suburb}, ${dataToUpdate.state}`;
+      }
+      
+      const userRef = doc(db, 'users', currentUser.uid);
+      await updateDoc(userRef, dataToUpdate);
+      
+      // Update local state
+      if (userData) {
+        setUserData({
+          ...userData,
+          ...dataToUpdate
+        });
+      }
+      
+      setShowEditModal(false);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    console.log(`Input change: ${name} = ${value}`);
+    setEditFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+  
   const handleGenerateSummary = async () => {
     setIsGeneratingSummary(true);
     
@@ -200,6 +270,335 @@ export default function Profile() {
       
       {/* Main container with very subtle side border */}
       <div className="w-[95%] mx-auto bg-transparent h-full overflow-hidden relative z-10">
+        {/* Edit Profile Modal */}
+        {showEditModal && (
+          <div className="fixed inset-0 flex items-center justify-center z-50">
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowEditModal(false)}></div>
+            <div className="relative bg-gradient-to-br from-[#2800A3] to-[#34D8F1] p-px rounded-xl overflow-hidden shadow-2xl max-w-2xl w-full mx-4">
+              <div className="relative bg-[#3B00CC]/90 rounded-xl p-6 overflow-y-auto max-h-[90vh]">
+                <button 
+                  onClick={() => setShowEditModal(false)}
+                  className="absolute top-4 right-4 text-white/70 hover:text-white"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+                
+                <h3 className={`${playfair.className} text-xl text-white mb-6`}>Edit Profile</h3>
+                
+                <form className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Personal Information */}
+                    <div>
+                      <label className={`${inter.className} block text-white/70 text-sm mb-1`}>First Name</label>
+                      <input 
+                        type="text" 
+                        name="firstName"
+                        value={editFormData.firstName || ''}
+                        onChange={handleInputChange}
+                        className={`${inter.className} w-full bg-[#2800A3]/80 border border-white/20 rounded-lg px-3 py-2 text-white`}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className={`${inter.className} block text-white/70 text-sm mb-1`}>Age</label>
+                      <input 
+                        type="number" 
+                        name="age"
+                        value={editFormData.age || ''}
+                        onChange={handleInputChange}
+                        className={`${inter.className} w-full bg-[#2800A3]/80 border border-white/20 rounded-lg px-3 py-2 text-white`}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className={`${inter.className} block text-white/70 text-sm mb-1`}>Suburb</label>
+                      <input 
+                        type="text" 
+                        name="suburb"
+                        value={editFormData.suburb || ''}
+                        onChange={handleInputChange}
+                        className={`${inter.className} w-full bg-[#2800A3]/80 border border-white/20 rounded-lg px-3 py-2 text-white`}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className={`${inter.className} block text-white/70 text-sm mb-1`}>State</label>
+                      <select 
+                        name="state"
+                        value={editFormData.state || ''}
+                        onChange={handleInputChange}
+                        className={`${inter.className} w-full bg-[#2800A3]/80 border border-white/20 rounded-lg px-3 py-2 text-white`}
+                      >
+                        <option value="">Select state</option>
+                        <option value="NSW">New South Wales</option>
+                        <option value="VIC">Victoria</option>
+                        <option value="QLD">Queensland</option>
+                        <option value="WA">Western Australia</option>
+                        <option value="SA">South Australia</option>
+                        <option value="TAS">Tasmania</option>
+                        <option value="ACT">Australian Capital Territory</option>
+                        <option value="NT">Northern Territory</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className={`${inter.className} block text-white/70 text-sm mb-1`}>Profession</label>
+                      <input 
+                        type="text" 
+                        name="profession"
+                        value={editFormData.profession || ''}
+                        onChange={handleInputChange}
+                        className={`${inter.className} w-full bg-[#2800A3]/80 border border-white/20 rounded-lg px-3 py-2 text-white`}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Lifestyle Information */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className={`${inter.className} block text-white/70 text-sm mb-1`}>Relationship Status</label>
+                      <select 
+                        name="relationshipStatus"
+                        value={editFormData.relationshipStatus || ''}
+                        onChange={handleInputChange}
+                        className={`${inter.className} w-full bg-[#2800A3]/80 border border-white/20 rounded-lg px-3 py-2 text-white`}
+                      >
+                        <option value="">Select status</option>
+                        <option value="Single">Single</option>
+                        <option value="Divorced">Divorced</option>
+                        <option value="Separated">Separated</option>
+                        <option value="Widowed">Widowed</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className={`${inter.className} block text-white/70 text-sm mb-1`}>Height</label>
+                      <input 
+                        type="text" 
+                        name="height"
+                        value={editFormData.height || ''}
+                        onChange={handleInputChange}
+                        className={`${inter.className} w-full bg-[#2800A3]/80 border border-white/20 rounded-lg px-3 py-2 text-white`}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className={`${inter.className} block text-white/70 text-sm mb-1`}>Smoking Status</label>
+                      <select 
+                        name="smokingStatus"
+                        value={editFormData.smokingStatus || ''}
+                        onChange={handleInputChange}
+                        className={`${inter.className} w-full bg-[#2800A3]/80 border border-white/20 rounded-lg px-3 py-2 text-white`}
+                      >
+                        <option value="">Select status</option>
+                        <option value="Non-smoker">Non-smoker</option>
+                        <option value="Occasionally (socially or on rare occasions)">Occasionally</option>
+                        <option value="Regular smoker">Regular smoker</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className={`${inter.className} block text-white/70 text-sm mb-1`}>Drinking Habits</label>
+                      <select 
+                        name="drinkingHabits"
+                        value={editFormData.drinkingHabits || ''}
+                        onChange={handleInputChange}
+                        className={`${inter.className} w-full bg-[#2800A3]/80 border border-white/20 rounded-lg px-3 py-2 text-white`}
+                      >
+                        <option value="">Select habits</option>
+                        <option value="Non-drinker">Non-drinker</option>
+                        <option value="Social drinker">Social drinker</option>
+                        <option value="Regular drinker">Regular drinker</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  {/* Children Information */}
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className={`${inter.className} block text-white/70 text-sm mb-1`}>Children</label>
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center">
+                          <input 
+                            type="radio" 
+                            id="hasChildren" 
+                            name="hasChildren"
+                            value="true"
+                            checked={editFormData.hasChildren === true || (editFormData.hasChildren === undefined && userData?.hasChildren === true)}
+                            onChange={() => setEditFormData(prev => ({ ...prev, hasChildren: true }))}
+                            className="mr-2"
+                          />
+                          <label htmlFor="hasChildren" className="text-white">Yes</label>
+                        </div>
+                        <div className="flex items-center">
+                          <input 
+                            type="radio" 
+                            id="noChildren" 
+                            name="hasChildren"
+                            value="false"
+                            checked={editFormData.hasChildren === false || (editFormData.hasChildren === undefined && userData?.hasChildren === false)}
+                            onChange={() => setEditFormData(prev => ({ ...prev, hasChildren: false }))}
+                            className="mr-2"
+                          />
+                          <label htmlFor="noChildren" className="text-white">No</label>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {(editFormData.hasChildren || (editFormData.hasChildren === undefined && userData?.hasChildren)) && (
+                      <div>
+                        <label className={`${inter.className} block text-white/70 text-sm mb-1`}>Children Details</label>
+                        <input 
+                          type="text" 
+                          name="childrenAges"
+                          placeholder="e.g., 14yo Boy, 6yo Girl"
+                          value={editFormData.childrenAges || ''}
+                          onChange={handleInputChange}
+                          className={`${inter.className} w-full bg-[#2800A3]/80 border border-white/20 rounded-lg px-3 py-2 text-white`}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Interests */}
+                  <div>
+                    <label className={`${inter.className} block text-white/70 text-sm mb-1`}>Interests (comma separated)</label>
+                    <div className="space-y-2">
+                      <input 
+                        type="text" 
+                        name="interestsInput"
+                        placeholder="e.g., Reading, Travel, Fitness"
+                        value={editFormData.interestsInput || ''}
+                        onChange={(e) => {
+                          setEditFormData(prev => ({
+                            ...prev,
+                            interestsInput: e.target.value
+                          }));
+                        }}
+                        onKeyDown={(e) => {
+                          // Add interest on comma or Enter key
+                          if (e.key === ',' || e.key === 'Enter') {
+                            e.preventDefault();
+                            
+                            if (!editFormData.interestsInput?.trim()) return;
+                            
+                            // If comma was pressed, split by comma and add all valid interests
+                            const inputInterests = editFormData.interestsInput.split(',');
+                            const validInterests = inputInterests.map(i => i.trim()).filter(i => i !== '');
+                            
+                            if (validInterests.length === 0) return;
+                            
+                            const currentInterests = [...(editFormData.interests || userData?.interests || [])];
+                            const newInterests = [...currentInterests];
+                            
+                            // Add each valid interest if it doesn't already exist
+                            validInterests.forEach(interest => {
+                              if (!newInterests.includes(interest)) {
+                                newInterests.push(interest);
+                              }
+                            });
+                            
+                            setEditFormData(prev => ({
+                              ...prev,
+                              interests: newInterests,
+                              interestsInput: ''
+                            }));
+                          }
+                        }}
+                        className={`${inter.className} w-full bg-[#2800A3]/80 border border-white/20 rounded-lg px-3 py-2 text-white`}
+                      />
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {(editFormData.interests || userData?.interests || []).map((interest, index) => (
+                          <div key={index} className="bg-white/20 text-white rounded-full px-3 py-1 text-sm flex items-center gap-1">
+                            <span>{interest}</span>
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                const newInterests = [...(editFormData.interests || userData?.interests || [])].filter((_, i) => i !== index);
+                                setEditFormData(prev => ({
+                                  ...prev,
+                                  interests: newInterests
+                                }));
+                              }}
+                              className="text-white/70 hover:text-white"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          if (!editFormData.interestsInput?.trim()) return;
+                          
+                          const newInterest = editFormData.interestsInput.trim();
+                          const currentInterests = [...(editFormData.interests || userData?.interests || [])];
+                          
+                          if (!currentInterests.includes(newInterest)) {
+                            setEditFormData(prev => ({
+                              ...prev,
+                              interests: [...currentInterests, newInterest],
+                              interestsInput: ''
+                            }));
+                          }
+                        }}
+                        className="mt-2 px-3 py-1 bg-white/20 text-white rounded-lg hover:bg-white/30 transition-all text-sm flex items-center gap-1"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>Add Interest</span>
+                      </button>
+                    </div>
+                  </div>
+                  
+                  {/* Personal Summary */}
+                  <div>
+                    <label className={`${inter.className} block text-white/70 text-sm mb-1`}>Personal Summary</label>
+                    <textarea 
+                      name="personalSummary"
+                      rows={4}
+                      value={editFormData.personalSummary || ''}
+                      onChange={handleInputChange}
+                      className={`${inter.className} w-full bg-[#2800A3]/80 border border-white/20 rounded-lg px-3 py-2 text-white`}
+                    />
+                  </div>
+                  
+                  <div className="pt-4 flex justify-end gap-4">
+                    <button 
+                      type="button"
+                      onClick={() => setShowEditModal(false)}
+                      className={`${inter.className} px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors`}
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={handleEditProfile}
+                      disabled={isSaving}
+                      className={`${inter.className} px-4 py-2 bg-[#3B00CC] text-white rounded-lg hover:bg-[#3B00CC]/90 transition-colors flex items-center ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    >
+                      {isSaving ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Saving...
+                        </>
+                      ) : 'Save Changes'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Desktop logo at top center */}
         <div className="hidden lg:flex lg:justify-center lg:mt-6 lg:mb-8">
           <div className="flex flex-col items-center">
@@ -255,6 +654,21 @@ export default function Profile() {
         <div className="flex flex-col lg:flex-row lg:gap-12 lg:mt-8 lg:items-start lg:min-h-[calc(100vh-200px)] lg:py-12">
           {/* Left column: Profile picture and basic info - desktop only */}
           <div className="hidden lg:flex lg:flex-col lg:w-1/5 lg:self-start lg:pt-0">
+            {/* Edit button */}
+            <div className="flex justify-end mb-4">
+              <button 
+                onClick={() => {
+                  initializeEditForm();
+                  setShowEditModal(true);
+                }}
+                className="px-3 py-1.5 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition-all flex items-center gap-1.5"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                <span className="text-sm">Edit Profile</span>
+              </button>
+            </div>
             {/* Back button */}
             <div className="flex items-center mb-2 lg:mb-0">
               <button onClick={() => router.back()} className="p-2 rounded-full bg-white/80 backdrop-blur-sm text-[#3B00CC] hover:bg-white transition-all">
@@ -282,7 +696,7 @@ export default function Profile() {
                   <span className="text-[2rem] font-bold text-[#73FFF6]" style={{fontFamily: 'Georgia, serif'}}>{userData.firstName},</span>
                   <span className="text-[1.5rem] text-[#73FFF6] ml-2" style={{fontFamily: 'Georgia, serif', position: 'relative', top: '-2px'}}>{userData.age || '39'}</span>
                 </div>
-                <p className="text-[#73FFF6] text-base mt-2 font-medium">{userData.questionnaireAnswers?.location || userData.location || `${userData.suburb || 'Sydney'}, ${userData.state || 'NSW'}`}</p>
+                <p className={`${inter.className} text-[#73FFF6] text-xl mt-2 font-medium`}>{userData.location || `${userData.suburb || 'Sydney'}, ${userData.state || 'NSW'}`}</p>
               </div>
             </div>
           </div>
@@ -292,12 +706,28 @@ export default function Profile() {
             {/* Info section with glass morphism background */}
             <div className="relative -mt-10 lg:mt-0 bg-white/15 backdrop-blur-md rounded-[40px] lg:rounded-[20px] flex-1 px-7 py-6 lg:mr-32">
               {/* Mobile only: Name and location */}
-              <div className="lg:hidden mb-4">
+              <div className="lg:hidden mb-4 flex justify-between items-start">
+                <div>
                 <div className="flex items-baseline">
                   <span className="text-[2.5rem] font-bold text-[#3B00CC]" style={{fontFamily: 'Georgia, serif'}}>{userData.firstName},</span>
                   <span className="text-[1.8rem] text-[#3B00CC] ml-2" style={{fontFamily: 'Georgia, serif', position: 'relative', top: '-4px'}}>{userData.age || '39'}</span>
                 </div>
-                <p className="text-[#3B00CC] text-base mt-2 font-medium">{userData.questionnaireAnswers?.location || userData.location || `${userData.suburb || 'Sydney'}, ${userData.state || 'NSW'}`}</p>
+                <p className={`${inter.className} text-[#3B00CC] text-xl mt-2 font-medium`}>{userData.location || `${userData.suburb || 'Sydney'}, ${userData.state || 'NSW'}`}</p>
+                </div>
+                
+                {/* Mobile Edit button */}
+                <button 
+                  onClick={() => {
+                    initializeEditForm();
+                    setShowEditModal(true);
+                  }}
+                  className="px-3 py-1.5 bg-white/20 backdrop-blur-sm text-[#3B00CC] rounded-lg hover:bg-white/30 transition-all flex items-center gap-1.5 mt-2"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                  <span className="text-sm">Edit</span>
+                </button>
               </div>
               
               {/* Two-column layout for desktop */}

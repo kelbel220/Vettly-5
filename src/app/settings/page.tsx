@@ -10,6 +10,14 @@ import { db } from '@/lib/firebase-init';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Home, UserCircle, Bell, CreditCard, Shield, HelpCircle, LogOut } from 'lucide-react';
 
+interface PaymentCard {
+  id: string;
+  last4: string;
+  cardType: string;
+  expiryDate: string;
+  isDefault: boolean;
+}
+
 interface UserData {
   firstName: string;
   lastName: string;
@@ -24,14 +32,17 @@ interface UserData {
     push: boolean;
     sms: boolean;
   };
+  paymentMethods?: PaymentCard[];
 }
 
 export default function Settings() {
   const { currentUser, logout, resetPassword } = useAuth();
   const router = useRouter();
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [paymentCards, setPaymentCards] = useState<PaymentCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('account');
+  // Removed notifications and privacy sections
   const [notificationPrefs, setNotificationPrefs] = useState({
     email: true,
     push: true,
@@ -43,8 +54,10 @@ export default function Settings() {
   const [resetPasswordSuccess, setResetPasswordSuccess] = useState(false);
   const [resetPasswordError, setResetPasswordError] = useState('');
   const [showChangePlan, setShowChangePlan] = useState(false);
-  const [pauseDuration, setPauseDuration] = useState('1');
+  const [showAddPayment, setShowAddPayment] = useState(false);
+  const [showManagePayments, setShowManagePayments] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('');
+  const [pauseDuration, setPauseDuration] = useState('1');
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -55,6 +68,17 @@ export default function Settings() {
           
           if (userSnap.exists()) {
             const data = userSnap.data() as UserData;
+            // Default payment card if none exists
+            const defaultPaymentMethods = [
+              {
+                id: 'card-1',
+                last4: '4242',
+                cardType: 'Visa',
+                expiryDate: '12/26',
+                isDefault: true
+              }
+            ];
+            
             setUserData({
               ...data,
               // Default values if not set
@@ -66,8 +90,11 @@ export default function Settings() {
                 email: true,
                 push: true,
                 sms: false
-              }
+              },
+              paymentMethods: data.paymentMethods || defaultPaymentMethods
             });
+            
+            setPaymentCards(data.paymentMethods || defaultPaymentMethods);
             
             if (data.notificationPreferences) {
               setNotificationPrefs(data.notificationPreferences);
@@ -475,6 +502,179 @@ export default function Settings() {
         </div>
       )}
       
+      {/* Add Payment Method Modal */}
+      {showAddPayment && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowAddPayment(false)}></div>
+          <div className="relative bg-gradient-to-br from-[#2800A3] to-[#34D8F1] p-px rounded-xl overflow-hidden shadow-2xl max-w-md w-full mx-4">
+            <div className="relative bg-[#1a1a2e] rounded-xl p-6 overflow-y-auto max-h-[90vh]">
+              <button 
+                onClick={() => setShowAddPayment(false)}
+                className="absolute top-4 right-4 text-white/70 hover:text-white"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              
+              <h3 className={`${playfair.className} text-xl text-white mb-6`}>Add Payment Method</h3>
+              
+              <form className="space-y-4">
+                <div>
+                  <label className={`${inter.className} block text-white/70 text-sm mb-1`}>Card Number</label>
+                  <input 
+                    type="text" 
+                    placeholder="1234 5678 9012 3456"
+                    className={`${inter.className} w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white`}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className={`${inter.className} block text-white/70 text-sm mb-1`}>Expiry Date</label>
+                    <input 
+                      type="text" 
+                      placeholder="MM/YY"
+                      className={`${inter.className} w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white`}
+                    />
+                  </div>
+                  <div>
+                    <label className={`${inter.className} block text-white/70 text-sm mb-1`}>CVC</label>
+                    <input 
+                      type="text" 
+                      placeholder="123"
+                      className={`${inter.className} w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white`}
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className={`${inter.className} block text-white/70 text-sm mb-1`}>Name on Card</label>
+                  <input 
+                    type="text" 
+                    placeholder="John Smith"
+                    className={`${inter.className} w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white`}
+                  />
+                </div>
+                
+                <div className="flex items-center mt-2">
+                  <input 
+                    type="checkbox" 
+                    id="makeDefault" 
+                    className="h-4 w-4 rounded border-white/20 bg-white/10 text-[#3B00CC]" 
+                  />
+                  <label htmlFor="makeDefault" className={`${inter.className} ml-2 block text-sm text-white/70`}>
+                    Make this my default payment method
+                  </label>
+                </div>
+                
+                <div className="pt-4">
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      // Simulate adding a new card
+                      const newCard = {
+                        id: `card-${paymentCards.length + 1}`,
+                        last4: '1234',
+                        cardType: 'Mastercard',
+                        expiryDate: '09/27',
+                        isDefault: false
+                      };
+                      
+                      const updatedCards = [...paymentCards, newCard];
+                      setPaymentCards(updatedCards);
+                      
+                      // Update user data
+                      if (userData) {
+                        setUserData({
+                          ...userData,
+                          paymentMethods: updatedCards
+                        });
+                      }
+                      
+                      setShowAddPayment(false);
+                    }}
+                    className={`${inter.className} w-full py-2 px-4 bg-[#3B00CC] text-white rounded-lg hover:bg-[#3B00CC]/90 transition-colors`}
+                  >
+                    Add Card
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Manage Payment Methods Modal */}
+      {showManagePayments && (
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowManagePayments(false)}></div>
+          <div className="relative bg-gradient-to-br from-[#2800A3] to-[#34D8F1] p-px rounded-xl overflow-hidden shadow-2xl max-w-md w-full mx-4">
+            <div className="relative bg-[#1a1a2e] rounded-xl p-6 overflow-y-auto max-h-[90vh]">
+              <button 
+                onClick={() => setShowManagePayments(false)}
+                className="absolute top-4 right-4 text-white/70 hover:text-white"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              
+              <h3 className={`${playfair.className} text-xl text-white mb-6`}>Manage Payment Methods</h3>
+              
+              <div className="space-y-4">
+                {/* Default Card */}
+                <div className="bg-white/10 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-gradient-to-r from-purple-500 to-blue-500 rounded-md p-2">
+                        <CreditCard className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className={`${inter.className} text-white font-medium`}>•••• •••• •••• 4242</p>
+                        <p className={`${inter.className} text-white/60 text-sm`}>Visa · Expires 12/26</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`${inter.className} text-xs px-2 py-1 bg-[#3B00CC]/20 text-[#3B00CC]/90 rounded-full`}>Default</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 mt-2">
+                    <button className={`${inter.className} text-sm text-white/70 hover:text-white`}>Edit</button>
+                    <button 
+                      className={`${inter.className} text-sm ${paymentCards.length > 1 ? 'text-red-400 hover:text-red-300' : 'text-gray-500 cursor-not-allowed'}`}
+                      onClick={() => {
+                        if (paymentCards.length > 1) {
+                          // Show confirmation dialog or directly remove
+                          alert('Card would be removed in a real implementation');
+                        } else {
+                          alert('Cannot remove the only payment method. Please add another card first.');
+                        }
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="pt-4">
+                  <button 
+                    onClick={() => {
+                      setShowManagePayments(false);
+                      setShowAddPayment(true);
+                    }}
+                    className={`${inter.className} flex items-center justify-center gap-2 w-full py-2 px-4 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors`}
+                  >
+                    <span>Add New Payment Method</span>
+                    <span className="text-lg">+</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Reset Password Modal */}
       {showResetPasswordModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
@@ -592,7 +792,7 @@ export default function Settings() {
               
               {/* Settings Navigation */}
               <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 mb-8">
-                <div className="flex flex-wrap justify-center items-center gap-4">
+                <div className="flex flex-wrap justify-center items-center gap-4 mx-auto max-w-md">
                   <button
                     onClick={() => setActiveSection('account')}
                     className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-colors ${
@@ -603,30 +803,6 @@ export default function Settings() {
                   >
                     <UserCircle className="w-5 h-5" />
                     <span className={inter.className}>Account</span>
-                  </button>
-                  
-                  <button
-                    onClick={() => setActiveSection('notifications')}
-                    className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-colors ${
-                      activeSection === 'notifications' 
-                        ? 'bg-white/20 text-white' 
-                        : 'text-white/70 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    <Bell className="w-5 h-5" />
-                    <span className={inter.className}>Notifications</span>
-                  </button>
-                  
-                  <button
-                    onClick={() => setActiveSection('privacy')}
-                    className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-colors ${
-                      activeSection === 'privacy' 
-                        ? 'bg-white/20 text-white' 
-                        : 'text-white/70 hover:text-white hover:bg-white/10'
-                    }`}
-                  >
-                    <Shield className="w-5 h-5" />
-                    <span className={inter.className}>Privacy</span>
                   </button>
                   
                   <button
@@ -748,6 +924,57 @@ export default function Settings() {
                               Cancel Membership
                             </button>
                           </div>
+                        </div>
+                      </div>
+                      
+                      {/* Payment Information */}
+                      <div className="p-4 bg-white/5 rounded-xl">
+                        <h4 className={`${playfair.className} text-white text-lg mb-4`}>Payment Information</h4>
+                        
+                        {/* Payment Cards */}
+                        {paymentCards.length > 0 ? (
+                          <div className="bg-white/10 rounded-lg p-3 mb-4">
+                            {paymentCards.filter(card => card.isDefault).map((card) => (
+                              <div key={card.id} className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-3">
+                                  <div className="bg-gradient-to-r from-purple-500 to-blue-500 rounded-md p-2">
+                                    <CreditCard className="w-5 h-5 text-white" />
+                                  </div>
+                                  <div>
+                                    <p className={`${inter.className} text-white font-medium`}>•••• •••• •••• {card.last4}</p>
+                                    <p className={`${inter.className} text-white/60 text-sm`}>{card.cardType} · Expires {card.expiryDate}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={`${inter.className} text-xs px-2 py-1 bg-[#3B00CC]/20 text-[#3B00CC]/90 rounded-full`}>Default</span>
+                                </div>
+                              </div>
+                            ))}
+                            {paymentCards.length > 1 && (
+                              <p className={`${inter.className} text-white/60 text-sm mt-1`}>{paymentCards.length - 1} additional {paymentCards.length - 1 === 1 ? 'card' : 'cards'} on file</p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="bg-white/10 rounded-lg p-3 mb-4 text-center">
+                            <p className={`${inter.className} text-white/70`}>No payment methods found</p>
+                          </div>
+                        )}
+                        
+                        <div className="flex justify-between items-center">
+                          <button 
+                            onClick={() => setShowAddPayment(true)}
+                            className={`${inter.className} flex items-center gap-2 px-4 py-2 bg-[#3B00CC] text-white rounded-lg hover:bg-[#3B00CC]/90 transition-colors`}
+                          >
+                            <span>Add Payment Method</span>
+                            <span className="text-lg">+</span>
+                          </button>
+                          
+                          <button 
+                            onClick={() => setShowManagePayments(true)}
+                            className={`${inter.className} px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors`}
+                          >
+                            Manage Payment Methods
+                          </button>
                         </div>
                       </div>
                       
