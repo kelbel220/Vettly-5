@@ -1,261 +1,274 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { inter, playfair } from '@/app/fonts';
-import Link from 'next/link';
-import { OrbField } from '@/app/components/gradients/OrbField';
-import { BsFillPersonFill } from 'react-icons/bs';
-import { GiTShirt } from 'react-icons/gi';
-import { IoBody } from 'react-icons/io5';
-import { FaHeart } from 'react-icons/fa';
+import { inter } from '@/app/fonts';
 import { useAuth } from '@/context/AuthContext';
-import { doc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase-init';
 import { updateProfile } from 'firebase/auth';
+import { OrbField } from '@/app/components/gradients/OrbField';
+import { FaUpload, FaTimes, FaCamera } from 'react-icons/fa';
 
-interface ImageUpload {
-  type: 'face' | 'fullBody' | 'style' | 'hobby';
-  file: File | null;
-  preview: string;
-}
-
-const imageTypes = {
+const photoTypes = {
   face: {
-    title: 'Face Photo',
-    icon: BsFillPersonFill,
-    description: 'A clear photo of your face, no sunglasses and no filters.'
+    title: 'Photo 1',
+    fieldName: 'profilePhotoUrl'
   },
   fullBody: {
-    title: 'Full Body Shot',
-    icon: IoBody,
-    description: 'This helps us understand your overall appearance and body shape.'
+    title: 'Photo 2',
+    fieldName: 'fullBodyPhotoUrl'
   },
   style: {
-    title: 'Personal Style',
-    icon: GiTShirt,
-    description: 'Show what you might wear on a date or nice dinner.'
+    title: 'Photo 3',
+    fieldName: 'stylePhotoUrl'
   },
   hobby: {
-    title: 'Something You Love',
-    icon: FaHeart,
-    description: 'Show your hobbies or lifestyle interests.'
+    title: 'Photo 4',
+    fieldName: 'hobbyPhotoUrl'
   }
 };
 
 export default function ProfileImages() {
   const router = useRouter();
   const { currentUser } = useAuth();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [images, setImages] = useState<Record<string, ImageUpload>>({
-    face: { type: 'face', file: null, preview: '' },
-    fullBody: { type: 'fullBody', file: null, preview: '' },
-    style: { type: 'style', file: null, preview: '' },
-    hobby: { type: 'hobby', file: null, preview: '' },
+  const [userPhotos, setUserPhotos] = useState<Record<string, string>>({
+    face: '',
+    fullBody: '',
+    style: '',
+    hobby: ''
   });
+  const fileInputRefs = {
+    face: useRef<HTMLInputElement>(null),
+    fullBody: useRef<HTMLInputElement>(null),
+    style: useRef<HTMLInputElement>(null),
+    hobby: useRef<HTMLInputElement>(null)
+  };
 
   useEffect(() => {
     if (!currentUser) {
       console.log('No user logged in, redirecting to login...');
       router.push('/login');
+      return;
     }
+    
+    console.log('Current user:', currentUser.uid);
+    
+    // Load existing images from user profile
+    const loadUserImages = async () => {
+      try {
+        console.log('Loading user images...');
+        const userRef = doc(db, 'users', currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        
+        if (userSnap.exists()) {
+          console.log('User document exists');
+          const userData = userSnap.data();
+          console.log('User data:', userData);
+          
+          const photos = {
+            face: userData.profilePhotoUrl || '',
+            fullBody: userData.fullBodyPhotoUrl || '',
+            style: userData.stylePhotoUrl || '',
+            hobby: userData.hobbyPhotoUrl || ''
+          };
+          
+          console.log('Loaded photos:', photos);
+          setUserPhotos(photos);
+        } else {
+          console.log('User document does not exist');
+        }
+        setLoading(false);
+      } catch (error) {
+        console.error('Error loading user images:', error);
+        setLoading(false);
+      }
+    };
+    
+    loadUserImages();
   }, [currentUser, router]);
 
-  const handleImageUpload = async (type: keyof typeof imageTypes, file: File) => {
-    console.log(`Uploading ${type} image:`, file);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      console.log(`Preview generated for ${type} image`);
-      setImages((prev) => ({
-        ...prev,
-        [type]: {
-          type,
-          file,
-          preview: e.target?.result as string,
-        } as ImageUpload,
-      }));
-    };
-    reader.readAsDataURL(file);
+  const handleFileSelect = (type: keyof typeof photoTypes) => {
+    if (fileInputRefs[type]?.current) {
+      fileInputRefs[type].current?.click();
+    }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Form submitted');
-    setError(null);
+  const handleFileChange = async (type: keyof typeof photoTypes, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentUser || !storage) return;
+    
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Create a reference with timestamp to avoid conflicts
+      const timestamp = Date.now();
+      const path = `users/${currentUser.uid}/${type}_${timestamp}.jpg`;
+      const imageRef = ref(storage, path);
+      
+      // Upload the file
+      const uploadTask = uploadBytesResumable(imageRef, file, {
+        contentType: 'image/jpeg'
+      });
+      
+      // Set up the observer for the upload task
+      uploadTask.on(
+        'state_changed',
+        (snapshot) => {
+          // Progress tracking if needed
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          console.log(`Upload is ${progress}% done`);
+        },
+        (error) => {
+          // Handle unsuccessful uploads
+          console.error('Upload failed:', error);
+          setError('Upload failed. Please try again.');
+          setLoading(false);
+        },
+        async () => {
+          // Handle successful uploads
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          
+          // Update Firestore document
+          const userRef = doc(db, 'users', currentUser.uid);
+          const fieldName = photoTypes[type].fieldName;
+          
+          await updateDoc(userRef, {
+            [fieldName]: downloadURL
+          });
+          
+          // If it's the face photo, also update auth profile
+          if (type === 'face') {
+            await updateProfile(currentUser, {
+              photoURL: downloadURL
+            });
+          }
+          
+          // Update local state
+          setUserPhotos(prev => ({
+            ...prev,
+            [type]: downloadURL
+          }));
+          
+          setLoading(false);
+        }
+      );
+    } catch (err) {
+      console.error('Error uploading image:', err);
+      setError('Failed to upload image. Please try again.');
+      setLoading(false);
+    }
+  };
+  
+  const handleDeletePhoto = async (type: keyof typeof photoTypes) => {
+    console.log('Delete photo triggered for:', type);
+    console.log('Current photo URL:', userPhotos[type]);
     
     if (!currentUser) {
-      setError('No user logged in');
       console.error('No user logged in');
       return;
     }
-
-    if (!storage) {
-      setError('Storage not initialized');
-      console.error('Storage not initialized');
+    
+    if (!userPhotos[type]) {
+      console.error('No photo URL to delete');
       return;
     }
-
-    if (!images.face.file) {
-      setError('Please upload a face photo');
-      console.error('No face photo uploaded');
-      return;
-    }
-
-    setIsSubmitting(true);
-
+    
     try {
-      console.log('Starting image upload process...');
-      console.log('Current images state:', JSON.stringify(images, null, 2));
+      setLoading(true);
+      setError(null);
       
-      // Upload face photo first and set as profile picture
-      console.log('Uploading face photo...');
-      
-      if (!storage) {
-        throw new Error('Storage not initialized');
-      }
-
-      if (!images.face.file) {
-        throw new Error('No face photo file selected');
-      }
-
-      try {
-        // Create a simple reference with timestamp to avoid conflicts
-        const timestamp = Date.now();
-        const faceRef = ref(storage, `users/${currentUser.uid}/profile_${timestamp}.jpg`);
-        console.log('Face photo reference created:', faceRef);
-
-        // Create a new File instance with the correct type
-        const imageFile = new File([images.face.file], 'profile.jpg', {
-          type: 'image/jpeg'
-        });
-        
-        // Create upload task with the File and proper metadata
-        const metadata = {
-          contentType: 'image/jpeg',
-          customMetadata: {
-            'Access-Control-Allow-Origin': '*'
-          }
+      // First, update local state immediately for better UX
+      setUserPhotos(prev => {
+        const newState = {
+          ...prev,
+          [type]: ''
         };
-        
-        const uploadTask = uploadBytesResumable(faceRef, imageFile, metadata);
-
-        // Monitor the upload
-        uploadTask.on('state_changed',
-          (snapshot) => {
-            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-            console.log('Upload progress:', progress + '%');
-            console.log('Current state:', snapshot.state);
-            console.log('Bytes transferred:', snapshot.bytesTransferred);
-            console.log('Total bytes:', snapshot.totalBytes);
-          },
-          (error) => {
-            console.error('Upload error details:', {
-              name: error.name,
-              code: error.code,
-              message: error.message,
-              serverResponse: error.serverResponse,
-              stack: error.stack
-            });
-            throw error;
-          },
-          () => {
-            console.log('Upload completed successfully');
-          }
-        );
-
-        // Wait for upload to complete
-        const snapshot = await uploadTask;
-        console.log('Upload snapshot:', snapshot);
-        
-        const faceUrl = await getDownloadURL(faceRef);
-        console.log('Face photo URL:', faceUrl);
-        
-        // Update user profile with face photo URL
-        const userRef = doc(db, 'users', currentUser.uid);
-        await updateDoc(userRef, {
-          profilePhotoUrl: faceUrl
-        });
-        console.log('Updated user document with face photo URL');
-
-        // Also update auth user photoURL
-        await updateProfile(currentUser, {
-          photoURL: faceUrl
-        });
-        console.log('Updated auth user photoURL');
-      } catch (uploadError: any) {
-        console.error('Detailed upload error:', {
-          code: uploadError.code,
-          message: uploadError.message,
-          serverResponse: uploadError.serverResponse,
-          name: uploadError.name,
-          stack: uploadError.stack
-        });
-        throw uploadError;
-      }
-
-      // Upload other images
-      const uploadPromises = Object.entries(images).map(async ([type, image]) => {
-        if (type !== 'face' && image.file) {
-          if (!storage) {
-            throw new Error('Storage not initialized');
-          }
-          const imageRef = ref(storage, `users/${currentUser.uid}/${type}.jpg`);
-          
-          const uploadTask = uploadBytesResumable(imageRef, image.file, {
-            contentType: 'image/jpeg',
-            customMetadata: {
-              'Access-Control-Allow-Origin': '*'
-            }
-          });
-
-          // Monitor upload progress
-          uploadTask.on('state_changed',
-            (snapshot) => {
-              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-              console.log(`${type} upload progress:`, progress + '%');
-            },
-            (error) => {
-              console.error(`${type} upload error:`, error);
-              throw error;
-            }
-          );
-
-          // Wait for upload to complete
-          await uploadTask;
-          console.log(`${type} upload completed successfully`);
-          
-          const url = await getDownloadURL(imageRef);
-          console.log(`${type} photo URL:`, url);
-          
-          // Update user document with image URL
-          const userRef = doc(db, 'users', currentUser.uid);
-          await updateDoc(userRef, {
-            [`${type}PhotoUrl`]: url
-          });
-        }
+        console.log('Updated local state immediately:', newState);
+        return newState;
       });
-
-      await Promise.all(uploadPromises);
-      console.log('All images uploaded');
-
-      console.log('Redirecting to dashboard...');
-      router.push('/dashboard');
-    } catch (error) {
-      console.error('Error uploading images:', error);
-      if (error instanceof Error) {
-        setError(error.message);
-        console.error('Error details:', error.message, error.stack);
-      } else {
-        setError('An unknown error occurred');
+      
+      // Get the field name based on type
+      const fieldName = photoTypes[type].fieldName;
+      console.log('Field name to update:', fieldName);
+      
+      // Try to delete from Firebase Storage if possible
+      // Extract the file path from the URL if it's a Firebase Storage URL
+      const photoUrl = userPhotos[type];
+      if (photoUrl && photoUrl.includes('firebasestorage.googleapis.com') && storage) {
+        try {
+          console.log('Attempting to delete file from Firebase Storage');
+          // Try to extract the path from the URL
+          const urlObj = new URL(photoUrl);
+          const pathWithQuery = urlObj.pathname;
+          // Remove the /o/ prefix and decode the path
+          const path = decodeURIComponent(pathWithQuery.replace(/^\/o\//, ''));
+          console.log('Extracted storage path:', path);
+          
+          // Create a reference to the file
+          const fileRef = ref(storage, path);
+          await deleteObject(fileRef).catch(error => {
+            console.warn('Could not delete from storage, might be a reference issue:', error);
+            // Continue anyway as we still want to remove the reference
+          });
+          console.log('File deleted from storage or not found');
+        } catch (storageError) {
+          console.warn('Error during storage deletion, continuing with reference removal:', storageError);
+          // We still continue to update the document reference
+        }
       }
-    } finally {
-      setIsSubmitting(false);
+      
+      // Update Firestore document to remove the URL
+      const userRef = doc(db, 'users', currentUser.uid);
+      console.log('Updating Firestore document for user:', currentUser.uid);
+      
+      await updateDoc(userRef, {
+        [fieldName]: ''
+      });
+      console.log('Firestore document updated successfully');
+      
+      // If it's the face photo, also update auth profile
+      if (type === 'face') {
+        console.log('Updating auth profile photo URL');
+        await updateProfile(currentUser, {
+          photoURL: ''
+        });
+        console.log('Auth profile updated successfully');
+      }
+      
+      console.log('Photo deleted successfully');
+      setLoading(false);
+    } catch (err) {
+      console.error('Error deleting image:', err);
+      setError('Failed to delete image. Please try again.');
+      // Restore the photo in local state if there was an error
+      setUserPhotos(prev => ({ ...prev }));
+      setLoading(false);
     }
   };
+
+  if (loading && !userPhotos.face && !userPhotos.fullBody && !userPhotos.style && !userPhotos.hobby) {
+    return (
+      <div className="relative min-h-screen w-full overflow-x-hidden">
+        {/* Background container with fixed position to cover entire viewport */}
+        <div className="fixed inset-0 w-full h-full" style={{ background: 'linear-gradient(to bottom right, #2800A3, #34D8F1)', zIndex: -10 }}>
+          <div className="absolute inset-0 bg-gradient-to-br from-[#34D8F1]/20 via-transparent to-[#34D8F1]/20" />
+          <div className="absolute inset-0 overflow-hidden">
+            <OrbField />
+          </div>
+        </div>
+        <div className="relative z-10 flex flex-col items-center justify-center h-screen">
+          <div className="w-16 h-16 rounded-full bg-white/10 animate-pulse mb-8" />
+          <div className="h-4 w-32 bg-white/10 animate-pulse mb-4 rounded" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen w-full overflow-x-hidden">
@@ -267,97 +280,129 @@ export default function ProfileImages() {
         </div>
       </div>
       
-      {/* Content container */}
-      <div className="relative z-10 container mx-auto px-4 py-8 md:py-16" style={{ paddingBottom: '2rem' }}>
-        <div className="flex justify-center mb-4">
-          <Link href="/">
-            <Image 
-              src="/vettly-logo.png" 
-              alt="Vettly Logo" 
-              width={150} 
-              height={60} 
-              className="h-auto w-auto" 
-            />
-          </Link>
-        </div>
-        <div className="max-w-4xl mx-auto mt-24">
-          <h1 className={`${playfair.className} text-4xl font-bold text-white text-center mb-6`}>
-            Upload Your Photos
-          </h1>
-          <div className="flex justify-center px-6 sm:px-10 md:px-16 mx-auto">
-            <p className={`${inter.className} text-lg text-white/80 text-left mb-12 max-w-xl px-2 py-3`}>
-              Upload your photos to help our matchmakers get to know you. There is no public profile and photos are only shared with your match once approved. You can update them anytime.
-            </p>
-          </div>
-
-          {error && (
-            <div className="mb-8 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-              <p className="text-red-500 text-center">{error}</p>
+      {/* Main Content Area */}
+      <main className="flex-1 relative z-10 overflow-hidden flex flex-col pb-[80px] lg:pb-0">
+        {/* Content Container */}
+        <div className="relative h-full z-10">
+          <div className="h-full overflow-y-auto px-4 py-8">
+            {/* Logo */}
+            <div className="flex justify-center mb-8">
+              <Image
+                src="/vettly-logo.png"
+                alt="Vettly Logo"
+                width={120}
+                height={30}
+                className=""
+                priority
+              />
             </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-8 mt-6" style={{ background: 'transparent' }}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-xs md:max-w-none mx-auto mobile-squares">
-              {Object.entries(imageTypes).map(([key, info]) => {
-                const Icon = info.icon;
-                return (
-                  <div
-                    key={key}
-                    className={`${inter.className} relative aspect-square backdrop-blur-md bg-white/15 rounded-xl border border-white/30 p-3 transition-all duration-200 group overflow-hidden hover:bg-white/20 hover:border-white/40`}
-                  >
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          handleImageUpload(key as keyof typeof imageTypes, file);
-                        }
-                      }}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                    />
-                    <div className="text-center relative z-1 h-full flex flex-col items-center justify-center">
-                      {images[key].preview ? (
-                        <div className="relative w-full h-full overflow-hidden rounded-lg">
-                          <Image
-                            src={images[key].preview}
-                            alt={info.title}
-                            fill
-                            style={{ objectFit: 'cover' }}
-                            className="transform group-hover:scale-105 transition-transform duration-200"
-                          />
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-full w-full group-hover:bg-white/5 transition-colors duration-200 px-6">
-                          <Icon className="h-14 w-14 text-[#3E00FF] group-hover:text-[#3E00FF]/90 transition-colors duration-200 mb-3" />
-                          <span className="text-lg font-medium text-white group-hover:text-[#3E00FF]/90 transition-colors duration-200">
-                            {info.title}
-                          </span>
-                          <span className="text-sm text-white/70 mt-1">
-                            {info.description}
-                          </span>
-                        </div>
-                      )}
+            
+            {/* Photos Section */}
+            <section className="max-w-6xl mx-auto mb-12">
+              <h2 className="text-4xl font-bold text-white mb-8 text-center">Your Photos</h2>
+              
+              {error && (
+                <div className="bg-red-500/20 border border-red-500 text-white p-4 rounded-lg mb-6">
+                  {error}
+                </div>
+              )}
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                {Object.entries(photoTypes).map(([type, config]) => {
+                  const photoType = type as keyof typeof photoTypes;
+                  return (
+                    <div key={type} className="bg-white/10 backdrop-blur-sm rounded-3xl overflow-hidden">
+                      {/* Hidden file input */}
+                      <input
+                        type="file"
+                        ref={fileInputRefs[photoType]}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(photoType, e)}
+                      />
+                      
+                      <div className="aspect-square relative">
+                        {userPhotos[photoType] ? (
+                          // Photo exists - show with delete and change options
+                          <div className="w-full h-full">
+                            {/* Photo */}
+                            <div className="relative w-full h-full">
+                              <Image
+                                src={userPhotos[photoType]}
+                                alt={config.title}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                            
+                            {/* No photo title - removed as requested */}
+                            
+                            {/* Action buttons container */}
+                            <div className="absolute top-0 right-0 p-2 flex gap-2">
+                              {/* Delete button - now cyan instead of red */}
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  handleDeletePhoto(photoType);
+                                }}
+                                className="w-8 h-8 rounded-full bg-[#73FFF6] text-[#3B00CC] flex items-center justify-center hover:bg-[#73FFF6]/90 transition-colors shadow-md"
+                                aria-label="Delete photo"
+                              >
+                                <FaTimes />
+                              </button>
+                            </div>
+                            
+                            {/* Change button - separate from delete to avoid conflicts */}
+                            <button 
+                              className="absolute bottom-10 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white px-3 py-1 rounded-full flex items-center gap-1 hover:bg-blue-600 transition-colors shadow-md"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleFileSelect(photoType);
+                              }}
+                              style={{fontFamily: inter.style.fontFamily}}
+                            >
+                              <FaUpload className="mr-1" />
+                              <span>Change</span>
+                            </button>
+                          </div>
+                        ) : (
+                          // No photo - show upload option
+                          <button 
+                            className="w-full h-full flex flex-col items-center justify-center bg-white/5 cursor-pointer hover:bg-white/10 transition-colors border-none"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              handleFileSelect(photoType);
+                            }}
+                          >
+                            <FaCamera className="text-4xl text-white/40 mb-2" />
+                            <p className="text-white font-medium">{config.title}</p>
+                            <div className="mt-3 bg-blue-500 text-white px-3 py-1 rounded-full flex items-center gap-1 hover:bg-blue-600 transition-colors" style={{fontFamily: inter.style.fontFamily}}>
+                              <FaUpload className="mr-1" />
+                              <span>Upload</span>
+                            </div>
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-
-
-            {/* Submit button as part of the form */}
-            <div className="flex justify-center mt-8 mb-12">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className={`${inter.className} inline-flex justify-center items-center py-3 px-16 min-w-[180px] shadow-lg shadow-indigo-500/30 text-base font-semibold rounded-full text-white bg-[#3E00FF] hover:bg-[#3E00FF]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#3E00FF] transition-all duration-200 ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}`}
-              >
-                {isSubmitting ? 'Uploading...' : 'Save & Continue'}
-              </button>
-            </div>
-          </form>
+                  );
+                })}
+              </div>
+              
+              {/* Bottom Done button */}
+              <div className="flex justify-center mt-12">
+                <button
+                  onClick={() => router.push('/profile')}
+                  className="px-16 py-3 bg-[#3E00FF] text-white rounded-full hover:bg-[#3E00FF]/90 transition-colors flex items-center gap-2 shadow-md text-lg font-medium"
+                >
+                  <span>Done</span>
+                </button>
+              </div>
+            </section>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

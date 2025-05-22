@@ -38,6 +38,8 @@ interface UserProfile {
   drinkingHabits?: string;
   profession?: string;
   interests?: string[];
+  photos?: string[]; // Array of photo URLs for the gallery
+  currentPhotoIndex?: number; // Index of the currently displayed photo
 }
 
 interface EditFormData extends Partial<UserProfile> {
@@ -53,6 +55,7 @@ export default function Profile() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState<EditFormData>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   
   // Initialize edit form data when modal opens
   const initializeEditForm = () => {
@@ -209,6 +212,16 @@ export default function Profile() {
               }
             }
             
+            // Collect all photo URLs into an array for the gallery
+            const photos = [userData.profilePhotoUrl];
+            if (userData.fullBodyPhotoUrl) photos.push(userData.fullBodyPhotoUrl);
+            if (userData.stylePhotoUrl) photos.push(userData.stylePhotoUrl);
+            if (userData.hobbyPhotoUrl) photos.push(userData.hobbyPhotoUrl);
+            
+            // Filter out any undefined or empty strings
+            userData.photos = photos.filter(url => url && url !== '/placeholder-profile.jpg');
+            userData.currentPhotoIndex = 0;
+            
             setUserData(userData);
           } else {
             // Create a default user profile
@@ -216,6 +229,8 @@ export default function Profile() {
               firstName: 'New',
               lastName: 'User',
               profilePhotoUrl: '/placeholder-profile.jpg',
+              photos: [],
+              currentPhotoIndex: 0
             };
             setUserData(defaultProfile);
           }
@@ -599,6 +614,33 @@ export default function Profile() {
             </div>
           </div>
         )}
+        {/* Edit buttons at the very top for desktop */}
+        <div className="hidden lg:flex lg:justify-end lg:px-8 lg:pt-6">
+          <div className="flex gap-3">
+            <button 
+              onClick={() => router.push('/profile/images')}
+              className="px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition-all flex items-center gap-1.5"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="text-sm">Edit Photos</span>
+            </button>
+            <button 
+              onClick={() => {
+                initializeEditForm();
+                setShowEditModal(true);
+              }}
+              className="px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition-all flex items-center gap-1.5"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              <span className="text-sm">Edit Profile</span>
+            </button>
+          </div>
+        </div>
+        
         {/* Desktop logo at top center */}
         <div className="hidden lg:flex lg:justify-center lg:mt-6 lg:mb-8">
           <div className="flex flex-col items-center">
@@ -631,72 +673,147 @@ export default function Profile() {
           </div>
         </div>
         
+
+        
         {/* Mobile only: Profile image and back button */}
         <div className="lg:hidden relative">
-          <button onClick={() => router.back()} className="absolute top-4 left-4 z-10 p-2 rounded-full bg-white/80 backdrop-blur-sm text-[#3B00CC] hover:bg-white transition-all">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
+
           
-          <div className="w-full aspect-[3/2.5] relative overflow-hidden rounded-t-[40px] mt-16">
+          <div className="w-full aspect-[3/2.5] relative overflow-hidden rounded-3xl mt-16 group">
+            {/* Main profile image */}
             <Image 
-              src={userData.profilePhotoUrl || '/placeholder-profile.jpg'} 
+              src={(userData.photos && userData.photos.length > 0) 
+                ? userData.photos[currentPhotoIndex] 
+                : (userData.profilePhotoUrl || '/placeholder-profile.jpg')}
               alt={`${userData.firstName}'s profile`}
               fill
               className="object-cover object-top"
               unoptimized
             />
+            
+            {/* Navigation arrows for photo gallery - only show if there are multiple photos */}
+            {userData.photos && userData.photos.length > 1 && (
+              <>
+                {/* Left arrow */}
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent triggering the parent onClick
+                    setCurrentPhotoIndex(prev => (prev > 0 ? prev - 1 : userData.photos!.length - 1));
+                  }}
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 p-2.5 rounded-full bg-gray-200/80 backdrop-blur-sm text-gray-700 hover:bg-gray-300/90 transition-all z-10 shadow-md"
+                >
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
+                  </svg>
+                </button>
+                
+                {/* Right arrow */}
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent triggering the parent onClick
+                    setCurrentPhotoIndex(prev => (prev < userData.photos!.length - 1 ? prev + 1 : 0));
+                  }}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 p-2.5 rounded-full bg-gray-200/80 backdrop-blur-sm text-gray-700 hover:bg-gray-300/90 transition-all z-10 shadow-md"
+                >
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+                  </svg>
+                </button>
+              </>
+            )}
+            
+            {/* No overlay - removed as requested */}
+          </div>
+          
+          {/* Mobile Edit buttons below profile image */}
+          <div className="flex justify-center gap-3 mt-4 mb-8">
+            <button 
+              onClick={() => router.push('/profile/images')}
+              className="px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition-all flex items-center gap-1.5"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="text-sm">Edit Photos</span>
+            </button>
+            <button 
+              onClick={() => {
+                initializeEditForm();
+                setShowEditModal(true);
+              }}
+              className="px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition-all flex items-center gap-1.5"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              <span className="text-sm">Edit Profile</span>
+            </button>
           </div>
         </div>
         
         {/* Desktop layout: Two-column with profile on left */}
-        <div className="flex flex-col lg:flex-row lg:gap-12 lg:mt-8 lg:items-start lg:min-h-[calc(100vh-200px)] lg:py-12">
+        <div className="flex flex-col lg:flex-row lg:gap-12 lg:mt-36 lg:items-start lg:min-h-[calc(100vh-200px)] lg:py-12">
           {/* Left column: Profile picture and basic info - desktop only */}
           <div className="hidden lg:flex lg:flex-col lg:w-1/5 lg:self-start lg:pt-0">
-            {/* Edit button */}
-            <div className="flex justify-end mb-4">
-              <button 
-                onClick={() => {
-                  initializeEditForm();
-                  setShowEditModal(true);
-                }}
-                className="px-3 py-1.5 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition-all flex items-center gap-1.5"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-                <span className="text-sm">Edit Profile</span>
-              </button>
-            </div>
-            {/* Back button */}
-            <div className="flex items-center mb-2 lg:mb-0">
-              <button onClick={() => router.back()} className="p-2 rounded-full bg-white/80 backdrop-blur-sm text-[#3B00CC] hover:bg-white transition-all">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-            </div>
+
             
             {/* Profile image */}
-            <div className="w-full aspect-square relative overflow-hidden rounded-[20px] lg:mt-[4.5rem]">
+            <div className="w-full aspect-square relative overflow-hidden rounded-3xl lg:mt-[6rem] group">
+              {/* Main profile image */}
               <Image 
-                src={userData.profilePhotoUrl || '/placeholder-profile.jpg'} 
+                src={(userData.photos && userData.photos.length > 0) 
+                  ? userData.photos[currentPhotoIndex] 
+                  : (userData.profilePhotoUrl || '/placeholder-profile.jpg')}
                 alt={`${userData.firstName}'s profile`}
                 fill
                 className="object-cover object-top"
                 unoptimized
               />
+              
+              {/* Navigation arrows for photo gallery - only show if there are multiple photos */}
+              {userData.photos && userData.photos.length > 1 && (
+                <>
+                  {/* Left arrow */}
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent triggering the parent onClick
+                      setCurrentPhotoIndex(prev => (prev > 0 ? prev - 1 : userData.photos!.length - 1));
+                    }}
+                    className="absolute left-2 top-1/2 transform -translate-y-1/2 p-2 rounded-full bg-gray-200/80 backdrop-blur-sm text-gray-700 hover:bg-gray-300/90 transition-all z-10 shadow-md"
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z" />
+                    </svg>
+                  </button>
+                  
+                  {/* Right arrow */}
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent triggering the parent onClick
+                      setCurrentPhotoIndex(prev => (prev < userData.photos!.length - 1 ? prev + 1 : 0));
+                    }}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 p-2 rounded-full bg-gray-200/80 backdrop-blur-sm text-gray-700 hover:bg-gray-300/90 transition-all z-10 shadow-md"
+                  >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+                    </svg>
+                  </button>
+                </>
+              )}
+              
+              {/* No overlay - removed as requested */}
             </div>
+            
+
             
             {/* Name and location */}
             <div className="mt-4 bg-white/15 backdrop-blur-md rounded-[20px] p-4">
               <div className="flex flex-col">
                 <div className="flex items-baseline">
-                  <span className="text-[2rem] font-bold text-[#73FFF6]" style={{fontFamily: 'Georgia, serif'}}>{userData.firstName},</span>
-                  <span className="text-[1.5rem] text-[#73FFF6] ml-2" style={{fontFamily: 'Georgia, serif', position: 'relative', top: '-2px'}}>{userData.age || '39'}</span>
+                  <span className={`${playfair.className} text-[2rem] font-bold text-[#73FFF6]`}>{userData.firstName},</span>
+                  <span className={`${playfair.className} text-[1.8rem] text-[#73FFF6] ml-2`} style={{position: 'relative', top: '-2px'}}>{userData.age || '39'}</span>
                 </div>
-                <p className={`${inter.className} text-[#73FFF6] text-xl mt-2 font-medium`}>{userData.location || `${userData.suburb || 'Sydney'}, ${userData.state || 'NSW'}`}</p>
+                <p className={`${playfair.className} text-[#73FFF6] text-2xl mt-2 mb-4 font-medium`}>{userData.location || `${userData.suburb || 'Sydney'}, ${userData.state || 'NSW'}`}</p>
               </div>
             </div>
           </div>
@@ -704,30 +821,18 @@ export default function Profile() {
           {/* Right column: Main content */}
           <div className="lg:w-4/5 lg:flex lg:flex-col lg:justify-start">
             {/* Info section with glass morphism background */}
-            <div className="relative -mt-10 lg:mt-0 bg-white/15 backdrop-blur-md rounded-[40px] lg:rounded-[20px] flex-1 px-7 py-6 lg:mr-32">
+            <div className="relative mt-4 lg:mt-0 bg-white/15 backdrop-blur-md rounded-[40px] lg:rounded-[20px] flex-1 px-7 py-6 lg:mr-32">
               {/* Mobile only: Name and location */}
               <div className="lg:hidden mb-4 flex justify-between items-start">
                 <div>
                 <div className="flex items-baseline">
-                  <span className="text-[2.5rem] font-bold text-[#3B00CC]" style={{fontFamily: 'Georgia, serif'}}>{userData.firstName},</span>
-                  <span className="text-[1.8rem] text-[#3B00CC] ml-2" style={{fontFamily: 'Georgia, serif', position: 'relative', top: '-4px'}}>{userData.age || '39'}</span>
+                  <span className={`${playfair.className} text-[2.5rem] font-bold text-[#3B00CC]`}>{userData.firstName},</span>
+                  <span className={`${playfair.className} text-[2.2rem] text-[#3B00CC] ml-2`} style={{position: 'relative', top: '-4px'}}>{userData.age || '39'}</span>
                 </div>
-                <p className={`${inter.className} text-[#3B00CC] text-xl mt-2 font-medium`}>{userData.location || `${userData.suburb || 'Sydney'}, ${userData.state || 'NSW'}`}</p>
+                <p className={`${playfair.className} text-[#3B00CC] text-2xl mt-2 mb-4 font-medium`}>{userData.location || `${userData.suburb || 'Sydney'}, ${userData.state || 'NSW'}`}</p>
                 </div>
                 
-                {/* Mobile Edit button */}
-                <button 
-                  onClick={() => {
-                    initializeEditForm();
-                    setShowEditModal(true);
-                  }}
-                  className="px-3 py-1.5 bg-white/20 backdrop-blur-sm text-[#3B00CC] rounded-lg hover:bg-white/30 transition-all flex items-center gap-1.5 mt-2"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                  </svg>
-                  <span className="text-sm">Edit</span>
-                </button>
+                {/* No Edit button here anymore */}
               </div>
               
               {/* Two-column layout for desktop */}
