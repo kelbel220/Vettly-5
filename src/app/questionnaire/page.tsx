@@ -559,14 +559,6 @@ export default function Questionnaire() {
         {/* Loading Content */}
         <div className="relative z-10 flex items-center justify-center h-screen w-full">
           <div className="flex flex-col items-center">
-            <Image
-              src="/vettly-logo.png"
-              alt="Vettly Logo"
-              width={180}
-              height={45}
-              className="h-auto w-auto mb-8"
-              priority
-            />
             <div className="w-16 h-16 border-4 border-[#34D8F1] border-t-transparent rounded-full animate-spin"></div>
             <p className="mt-4 text-white font-medium">Loading your questionnaire...</p>
           </div>
@@ -594,7 +586,7 @@ export default function Questionnaire() {
               alt="Vettly Logo"
               width={120}
               height={30}
-              className="h-auto w-auto"
+              className="h-auto w-auto max-h-16"
               priority
             />
           </div>
@@ -652,7 +644,7 @@ export default function Questionnaire() {
               alt="Vettly Logo"
               width={120}
               height={30}
-              className="h-auto w-auto"
+              className="h-auto w-auto max-h-16"
               priority
             />
           </div>
@@ -706,9 +698,9 @@ export default function Questionnaire() {
               <Image
                 src="/vettly-logo.png"
                 alt="Vettly Logo"
-                width={100}
+                width={120}
                 height={25}
-                className="h-auto w-auto"
+                className="h-auto w-auto max-h-16"
                 priority
               />
 
@@ -775,9 +767,9 @@ export default function Questionnaire() {
               <Image
                 src="/vettly-logo.png"
                 alt="Vettly Logo"
-                width={100}
+                width={120}
                 height={25}
-                className="h-auto w-auto"
+                className="h-auto w-auto max-h-16"
                 priority
               />
 
