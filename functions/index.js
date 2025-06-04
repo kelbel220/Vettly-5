@@ -4,6 +4,9 @@ const admin = require('firebase-admin');
 
 admin.initializeApp();
 
+// Import scheduled jobs
+const scheduledJobs = require('./src/scheduledJobs');
+
 /**
  * Simple test function to verify deployment is working
  */

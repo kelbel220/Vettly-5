@@ -23,6 +23,22 @@ service cloud.firestore {
       allow delete: if request.auth != null;
     }
     
+    // Weekly Tips collection - authenticated users can read, only admin can write
+    match /weeklyTips/{tipId} {
+      // Anyone can read weekly tips
+      allow read: if true;
+      // For development purposes, allow authenticated users to create/update/delete
+      // In production, you might want to restrict this to admin users
+      allow create, update, delete: if request.auth != null;
+    }
+    
+    // User Tip Views collection - track which users have viewed which tips
+    match /userTipViews/{viewId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create, update: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+    
     // Add rules for any other collections your app uses
     // For example, if you have a matches collection for user matching:
     match /matches/{matchId} {

@@ -4,9 +4,7 @@ import { OrbField } from './components/gradients/OrbField';
 import { AnimatedText } from './components/text/AnimatedText';
 import { TypewriterText } from './components/text/TypewriterText';
 import Image from 'next/image';
-import { Inter } from 'next/font/google';
-
-const inter = Inter({ subsets: ['latin'] });
+import { inter, playfair } from './fonts';
 
 export default function Home() {
   return (
@@ -46,12 +44,12 @@ export default function Home() {
           />
           <AnimatedText 
             text="MATCHMAKING" 
-            className="text-7xl md:text-8xl font-black tracking-wider leading-none relative z-10"
+            className={`${playfair.className} text-7xl md:text-8xl font-black tracking-wider leading-none relative z-10`}
             delay={0.3}
           />
           <AnimatedText 
             text="REVOLUTION" 
-            className="text-7xl md:text-8xl font-black tracking-wider leading-none relative z-10"
+            className={`${playfair.className} text-7xl md:text-8xl font-black tracking-wider leading-none relative z-10`}
             delay={0.5}
           />
         </div>

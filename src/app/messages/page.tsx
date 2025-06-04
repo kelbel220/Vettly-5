@@ -34,96 +34,8 @@ export default function Messages() {
   const router = useRouter();
   const { currentUser } = useAuth();
   
-  // Sample dummy data for demonstration
-  const dummyContacts: Contact[] = [
-    {
-      id: '1',
-      firstName: 'Sarah',
-      lastName: 'Johnson',
-      profilePhotoUrl: '/images/profile1.jpg',
-      lastMessage: 'Looking forward to meeting you!',
-      lastMessageTime: Timestamp.fromDate(new Date(Date.now() - 1000 * 60 * 30)),
-      unreadCount: 2
-    },
-    {
-      id: '2',
-      firstName: 'Michael',
-      lastName: 'Chen',
-      profilePhotoUrl: '/images/profile2.jpg',
-      lastMessage: 'What time works for you?',
-      lastMessageTime: Timestamp.fromDate(new Date(Date.now() - 1000 * 60 * 120)),
-      unreadCount: 0
-    },
-    {
-      id: '3',
-      firstName: 'Emma',
-      lastName: 'Wilson',
-      lastMessage: 'Thanks for your help!',
-      lastMessageTime: Timestamp.fromDate(new Date(Date.now() - 1000 * 60 * 60 * 5)),
-      unreadCount: 1
-    }
-  ];
-
-  const dummyMessages: Message[] = [
-    {
-      id: '1',
-      senderId: '1',
-      receiverId: currentUser?.uid || '',
-      content: 'Hi there! I saw your profile and I think you would be a great fit for our family.',
-      timestamp: Timestamp.fromDate(new Date(Date.now() - 1000 * 60 * 60)),
-      read: true
-    },
-    {
-      id: '2',
-      senderId: currentUser?.uid || '',
-      receiverId: '1',
-      content: 'Thanks for reaching out! I would love to learn more about what you are looking for.',
-      timestamp: Timestamp.fromDate(new Date(Date.now() - 1000 * 60 * 55)),
-      read: true
-    },
-    {
-      id: '3',
-      senderId: '1',
-      receiverId: currentUser?.uid || '',
-      content: 'We need someone who can help with our two children, ages 5 and 8, primarily after school hours.',
-      timestamp: Timestamp.fromDate(new Date(Date.now() - 1000 * 60 * 50)),
-      read: true
-    },
-    {
-      id: '4',
-      senderId: currentUser?.uid || '',
-      receiverId: '1',
-      content: 'That sounds perfect for my schedule. I have experience with children in that age range.',
-      timestamp: Timestamp.fromDate(new Date(Date.now() - 1000 * 60 * 45)),
-      read: true
-    },
-    {
-      id: '5',
-      senderId: '1',
-      receiverId: currentUser?.uid || '',
-      content: 'Great! Would you be available for an interview this week?',
-      timestamp: Timestamp.fromDate(new Date(Date.now() - 1000 * 60 * 40)),
-      read: true
-    },
-    {
-      id: '6',
-      senderId: '1',
-      receiverId: currentUser?.uid || '',
-      content: 'We could meet on Thursday afternoon if that works for you.',
-      timestamp: Timestamp.fromDate(new Date(Date.now() - 1000 * 60 * 35)),
-      read: false
-    },
-    {
-      id: '7',
-      senderId: '1',
-      receiverId: currentUser?.uid || '',
-      content: 'Please let me know what time would be best.',
-      timestamp: Timestamp.fromDate(new Date(Date.now() - 1000 * 60 * 30)),
-      read: false
-    }
-  ];
-
-  const [contacts, setContacts] = useState<Contact[]>(dummyContacts);
+  // Initialize with empty arrays instead of dummy data
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -131,7 +43,7 @@ export default function Messages() {
   const [showConversation, setShowConversation] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // For demo purposes, we're using dummy data instead of fetching from Firebase
+  // Check if user is logged in, otherwise redirect to login
   useEffect(() => {
     if (!currentUser) {
       router.push('/login');
@@ -143,46 +55,15 @@ export default function Messages() {
       setLoading(false);
     }, 1000);
     
-    // In a real app, we would fetch contacts here
-    // For demo, we're using the dummy contacts defined above
+    // In a real app, we would fetch contacts here from Firebase
   }, [currentUser, router]);
 
-  // Load dummy messages when a contact is selected
+  // Load messages when a contact is selected
   useEffect(() => {
     if (!selectedContact) return;
     
-    // For demo purposes, only show messages for the first contact
-    if (selectedContact.id === '1') {
-      setMessages(dummyMessages);
-    } else {
-      // For other contacts, show fewer messages
-      setMessages([
-        {
-          id: `${selectedContact.id}-1`,
-          senderId: selectedContact.id,
-          receiverId: currentUser?.uid || '',
-          content: `Hello! I'm ${selectedContact.firstName}. Nice to connect with you!`,
-          timestamp: Timestamp.fromDate(new Date(Date.now() - 1000 * 60 * 120)),
-          read: true
-        },
-        {
-          id: `${selectedContact.id}-2`,
-          senderId: currentUser?.uid || '',
-          receiverId: selectedContact.id,
-          content: `Hi ${selectedContact.firstName}! Thanks for reaching out. How can I help you?`,
-          timestamp: Timestamp.fromDate(new Date(Date.now() - 1000 * 60 * 115)),
-          read: true
-        },
-        {
-          id: `${selectedContact.id}-3`,
-          senderId: selectedContact.id,
-          receiverId: currentUser?.uid || '',
-          content: selectedContact.lastMessage || 'Looking forward to chatting more!',
-          timestamp: selectedContact.lastMessageTime || Timestamp.fromDate(new Date(Date.now() - 1000 * 60 * 30)),
-          read: selectedContact.unreadCount === 0
-        }
-      ]);
-    }
+    // In a real app, we would fetch messages for the selected contact here from Firebase
+    setMessages([]);
     
     // Scroll to bottom
     setTimeout(() => {
@@ -194,7 +75,7 @@ export default function Messages() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Send message (demo version)
+  // Send message
   const sendMessage = () => {
     if (!currentUser || !selectedContact || !newMessage.trim()) return;
 
@@ -328,77 +209,72 @@ export default function Messages() {
                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#34D8F1]"></div>
               </div>
             ) : contacts.length === 0 ? (
-              <div className="p-8 text-center text-white/70">
-                <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-white/10 flex items-center justify-center">
-                  <User className="h-8 w-8 text-[#34D8F1]" />
+              <div className="flex flex-col items-center justify-center h-full py-10 -mt-16 md:-mt-8">
+                <div className="w-24 h-24 md:w-20 md:h-20 rounded-full bg-indigo-800/30 flex items-center justify-center mb-6">
+                  <svg className="w-12 h-12 md:w-10 md:h-10" fill="none" stroke="#34D8F1" strokeWidth="1.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                  </svg>
                 </div>
-                <p className="text-lg font-medium text-white">No conversations yet</p>
-                <p className="text-sm mt-2 text-white/70">
-                  Your messages with other users will appear here
+                <h3 className="text-3xl md:text-2xl font-bold text-white mb-4 md:mb-3" style={{fontFamily: inter.style.fontFamily}}>No Conversations</h3>
+                <p className="text-white text-lg md:text-base text-center max-w-xs px-6" style={{fontFamily: inter.style.fontFamily}}>
+                  You will get access to messages with your match 48 hours before your date.
                 </p>
               </div>
             ) : (
-              <ul className="space-y-1 p-3">
+              <div className="flex-1 overflow-y-auto">
                 {contacts.map(contact => (
-                  <li 
+                  <div 
                     key={contact.id}
-                    className={`px-4 py-3 rounded-xl hover:bg-white/15 cursor-pointer transition-all duration-200 ${selectedContact?.id === contact.id ? 'bg-white/20 shadow-lg' : ''}`}
-                    onClick={() => handleSelectContact(contact)}
+                    className={`flex items-center gap-3 p-4 cursor-pointer hover:bg-indigo-900/30 transition-colors ${selectedContact?.id === contact.id ? 'bg-indigo-900/40' : ''}`}
+                    onClick={() => {
+                      setSelectedContact(contact);
+                      setShowConversation(true);
+                    }}
                   >
-                    <div className="flex items-center">
-                      <div className="relative">
-                        {contact.profilePhotoUrl ? (
-                          <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-white/80 shadow-lg">
-                            <Image 
-                              src={contact.profilePhotoUrl} 
-                              alt={`${contact.firstName} ${contact.lastName}`}
-                              width={56}
-                              height={56}
-                              className="object-cover w-full h-full"
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center border-2 border-white/80 shadow-lg">
-                            <User className="h-7 w-7 text-white" />
-                          </div>
-                        )}
-                        
-                        {contact.unreadCount > 0 && (
-                          <div className="absolute -top-1 -right-1 bg-[#34D8F1] text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold text-white border-2 border-white shadow-md">
-                            {contact.unreadCount}
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="ml-4 flex-1 overflow-hidden">
-                        <div className="flex justify-between items-center">
-                          <h3 className="font-semibold truncate text-white text-base" style={{fontFamily: inter.style.fontFamily}}>
-                            {contact.firstName} {contact.lastName}
-                          </h3>
-                          {contact.lastMessageTime && (
-                            <span className="text-xs font-medium text-white/80 bg-white/10 px-2 py-1 rounded-full">
-                              {new Date(contact.lastMessageTime.toMillis()).toLocaleTimeString([], {
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </span>
-                          )}
+                    {/* Profile Photo */}
+                    <div className="relative">
+                      {contact.profilePhotoUrl ? (
+                        <div className="w-12 h-12 rounded-full overflow-hidden bg-indigo-800">
+                          <Image 
+                            src={contact.profilePhotoUrl} 
+                            alt={`${contact.firstName} ${contact.lastName}`}
+                            width={48}
+                            height={48}
+                            className="object-cover"
+                          />
                         </div>
-                        
-                        {contact.lastMessage && (
-                          <p className="text-sm text-white/90 truncate mt-1" style={{fontFamily: inter.style.fontFamily}}>
-                            {contact.unreadCount > 0 ? (
-                              <span className="font-medium">{contact.lastMessage}</span>
-                            ) : (
-                              contact.lastMessage
-                            )}
-                          </p>
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-indigo-800 flex items-center justify-center">
+                          <span className="text-white text-lg">{contact.firstName[0]}</span>
+                        </div>
+                      )}
+                      {contact.unreadCount > 0 && (
+                        <div className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#34D8F1] flex items-center justify-center">
+                          <span className="text-xs text-indigo-900 font-bold">{contact.unreadCount}</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Contact Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-white font-medium truncate">{contact.firstName} {contact.lastName}</h3>
+                        {contact.lastMessageTime && (
+                          <span className="text-xs text-indigo-300">
+                            {new Date(contact.lastMessageTime.toMillis()).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </span>
                         )}
                       </div>
+                      {contact.lastMessage && (
+                        <p className="text-sm text-indigo-300 truncate">{contact.lastMessage}</p>
+                      )}
                     </div>
-                  </li>
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
           </div>
           
@@ -448,59 +324,19 @@ export default function Messages() {
                   </div>
                 </div>
                 
-                {/* Messages List */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white">
-                  {messages.map(message => (
-                    <div 
-                      key={message.id}
-                      className={`flex ${message.senderId === currentUser?.uid ? 'justify-end' : 'justify-start'}`}
-                    >
-                      {message.senderId !== currentUser?.uid && (
-                        <div className="flex-shrink-0 mr-2 self-end">
-                          {selectedContact.profilePhotoUrl ? (
-                            <div className="w-8 h-8 rounded-full overflow-hidden">
-                              <Image 
-                                src={selectedContact.profilePhotoUrl} 
-                                alt={`${selectedContact.firstName}`}
-                                width={32}
-                                height={32}
-                                className="object-cover w-full h-full"
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-[#5A17E0] flex items-center justify-center">
-                              <User className="h-4 w-4 text-white" />
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      <div 
-                        className={`max-w-[75%] p-3 ${
-                          message.senderId === currentUser?.uid 
-                            ? 'bg-[#5A17E0] text-white rounded-t-2xl rounded-l-2xl rounded-br-none' 
-                            : 'bg-gray-100 text-gray-800 rounded-t-2xl rounded-r-2xl rounded-bl-none'
-                        }`}
-                      >
-                        <p className="leading-relaxed" style={{fontFamily: inter.style.fontFamily}}>{message.content}</p>
-                        <div className={`text-xs mt-1 flex items-center gap-1 ${
-                          message.senderId === currentUser?.uid 
-                            ? 'text-white/70 justify-end' 
-                            : 'text-gray-500'
-                        }`}>
-                          {message.timestamp ? new Date(message.timestamp.toMillis()).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          }) : 'Sending...'}
-                          
-                          {message.senderId === currentUser?.uid && message.read && (
-                            <svg className="w-3 h-3 fill-current" viewBox="0 0 24 24">
-                              <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
-                            </svg>
-                          )}
-                        </div>
-                      </div>
+                {/* Message List */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  <div className="flex flex-col items-center justify-center h-full py-10 -mt-16 md:-mt-8">
+                    <div className="w-24 h-24 md:w-20 md:h-20 rounded-full bg-indigo-800/30 flex items-center justify-center mb-6">
+                      <svg className="w-12 h-12 md:w-10 md:h-10" fill="none" stroke="#34D8F1" strokeWidth="1.5" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                      </svg>
                     </div>
-                  ))}
+                    <h3 className="text-3xl md:text-2xl font-bold text-white mb-4 md:mb-3" style={{fontFamily: inter.style.fontFamily}}>No Messages</h3>
+                    <p className="text-white text-lg md:text-base text-center max-w-xs px-6" style={{fontFamily: inter.style.fontFamily}}>
+                      You will get access to messages with your match 48 hours before your date.
+                    </p>
+                  </div>
                   <div ref={messagesEndRef} />
                 </div>
                 

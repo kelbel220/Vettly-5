@@ -22,6 +22,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        playfair: ['var(--font-playfair)', 'serif'],
       },
       dropShadow: {
         'glow': '0 0 20px rgba(255, 150, 113, 0.3)',

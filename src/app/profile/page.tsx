@@ -51,7 +51,7 @@ export default function Profile() {
   const { currentUser } = useAuth();
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
+  // Summary generation feature has been removed
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState<EditFormData>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -119,35 +119,7 @@ export default function Profile() {
       [name]: value
     }));
   };
-  
-  const handleGenerateSummary = async () => {
-    setIsGeneratingSummary(true);
-    
-    try {
-      // This would typically be an API call to generate a summary
-      setTimeout(async () => {
-        // For demo purposes, we'll just use a template string
-        const summary = `${userData?.firstName || 'User'} is a ${userData?.age || '30'}-year-old ${userData?.profession || 'professional'} from ${userData?.location || 'Sydney'}. They enjoy spending time with friends and family, traveling, and exploring new cuisines.`;
-        
-        if (currentUser && userData) {
-          const userRef = doc(db, 'users', currentUser.uid);
-          await updateDoc(userRef, {
-            personalSummary: summary
-          });
-          
-          setUserData({
-            ...userData,
-            personalSummary: summary
-          });
-        }
-        
-        setIsGeneratingSummary(false);
-      }, 2000);
-    } catch (error) {
-      console.error('Error generating summary:', error);
-      setIsGeneratingSummary(false);
-    }
-  };
+  // Summary generation feature has been removed
 
   // Function to format children information
   const formatChildrenInfo = (userData: any) => {
@@ -614,32 +586,7 @@ export default function Profile() {
             </div>
           </div>
         )}
-        {/* Edit buttons at the very top for desktop */}
-        <div className="hidden lg:flex lg:justify-end lg:px-8 lg:pt-6">
-          <div className="flex gap-3">
-            <button 
-              onClick={() => router.push('/profile/images')}
-              className="px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition-all flex items-center gap-1.5"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <span className="text-sm">Edit Photos</span>
-            </button>
-            <button 
-              onClick={() => {
-                initializeEditForm();
-                setShowEditModal(true);
-              }}
-              className="px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition-all flex items-center gap-1.5"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-              <span className="text-sm">Edit Profile</span>
-            </button>
-          </div>
-        </div>
+        {/* Edit buttons removed from top for desktop */}
         
         {/* Desktop logo at top center */}
         <div className="hidden lg:flex lg:justify-center lg:mt-6 lg:mb-8">
@@ -816,6 +763,31 @@ export default function Profile() {
                 <p className={`${playfair.className} text-[#73FFF6] text-2xl mt-2 mb-4 font-medium`}>{userData.location || `${userData.suburb || 'Sydney'}, ${userData.state || 'NSW'}`}</p>
               </div>
             </div>
+            
+            {/* Desktop edit buttons moved under name and location box */}
+            <div className="hidden lg:flex mt-4 gap-3 justify-center">
+              <button 
+                onClick={() => router.push('/profile/images')}
+                className="px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition-all flex items-center gap-1.5"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <span className="text-sm">Edit Photos</span>
+              </button>
+              <button 
+                onClick={() => {
+                  initializeEditForm();
+                  setShowEditModal(true);
+                }}
+                className="px-4 py-2 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition-all flex items-center gap-1.5"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+                <span className="text-sm">Edit Profile</span>
+              </button>
+            </div>
           </div>
           
           {/* Right column: Main content */}
@@ -971,26 +943,26 @@ export default function Profile() {
                   
                   {/* Personal Summary section */}
                   <div className="mt-8 mb-8">
+                    <button 
+                      onClick={() => {
+                        console.log('userData:', userData);
+                        alert('Check console for userData contents');
+                      }}
+                      className="mb-4 px-3 py-1 bg-gray-500 text-white rounded-lg text-xs"
+                    >
+                      Debug: Show userData
+                    </button>
                     <h2 className="text-2xl font-semibold text-white mb-4">Personal Summary</h2>
                     <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 w-full">
                       <p className="text-white text-sm leading-relaxed" style={{fontFamily: inter.style.fontFamily}}>
                         {userData.personalSummary || "Bob, you're an extroverted, spontaneous individual with a calm and grounded personality. You love reading, enjoy mixing things up, and have a high regard for health. As a lawyer, you've learned the importance of balance - between work and personal life, and also in relationships, where you appreciate a blend of independence and togetherness. You value self-awareness, empathy, and optimism in your partner and look for honesty above all. In relationships, you're all in, ready to support your partner financially while expecting the same degree of emotional connection. You're a person who addresses conflicts straight away and prefers to take the lead but makes decisions logically, considering all pros and cons. Physical attraction and intimacy are crucial to you, and you're open to your partner's choices in cosmetic enhancements. For you, it's important that your partner doesn't have children from previous relationships. You're comfortable with your partner's occasional social use of drugs or alcohol, provided it's respectful. You also value your alone time to recharge and handle stress."}
                       </p>
+                      {/* No Summarize Again button as requested */}
                       {!userData.personalSummary && (
                         <button 
-                          onClick={handleGenerateSummary}
-                          disabled={isGeneratingSummary}
                           className="mt-4 px-5 py-2.5 bg-[#34D8F1] text-white rounded-lg text-sm font-medium hover:bg-[#34D8F1]/80 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center w-full shadow-sm"
                         >
-                          {isGeneratingSummary ? (
-                            <>
-                              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                              </svg>
-                              Generating...
-                            </>
-                          ) : 'Generate Summary'}
+                          Generate Summary
                         </button>
                       )}
                     </div>
@@ -1024,16 +996,16 @@ export default function Profile() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
               </svg>
             )},
-            { id: 'profile', icon: (
-              <svg className="w-8 h-8" fill="#3B00CC" stroke="#3B00CC" strokeWidth="1" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            { id: 'settings', icon: (
+              <svg className="w-8 h-8" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
               </svg>
             )}
           ].map((item) => (
             <button
               key={item.id}
               className={`p-4 rounded-xl transition-all ${
-                item.id === 'profile'
+                item.id === 'settings'
                   ? 'bg-white/25 text-white'
                   : 'text-white hover:text-white hover:bg-white/20'
               }`}
@@ -1066,16 +1038,16 @@ export default function Profile() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
               </svg>
             )},
-            { id: 'profile', icon: (
-              <svg className="w-6 h-6" fill="#3B00CC" stroke="#3B00CC" strokeWidth="1" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            { id: 'settings', icon: (
+              <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
               </svg>
             )}
           ].map((item) => (
             <button
               key={item.id}
               className={`p-2 rounded-lg transition-all ${
-                item.id === 'profile'
+                item.id === 'settings'
                   ? 'bg-white/25 text-white'
                   : 'text-white hover:text-white hover:bg-white/20'
               }`}
