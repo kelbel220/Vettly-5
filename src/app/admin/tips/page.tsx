@@ -18,6 +18,7 @@ export default function AdminTipsPage() {
   const [generatingTip, setGeneratingTip] = useState<boolean>(false);
   const [selectedCategory, setSelectedCategory] = useState<WeeklyTipCategory>(WeeklyTipCategory.CONVERSATION_STARTERS);
   const [openaiError, setOpenaiError] = useState<string | null>(null);
+  const [cacheCleared, setCacheCleared] = useState<boolean>(false);
 
   useEffect(() => {
     fetchTips();
@@ -202,7 +203,39 @@ export default function AdminTipsPage() {
       
       return format(date, 'MMM d, yyyy h:mm a');
     } catch (err) {
+      console.error('Error formatting date:', err);
       return 'Invalid date';
+    }
+  };
+
+  // Function to clear the weekly tip cache in local storage
+  const clearTipCache = () => {
+    try {
+      // Clear all tip-related items from local storage
+      // These are the exact keys used in useWeeklyTip.ts
+      localStorage.removeItem('vettly_weekly_tip');
+      localStorage.removeItem('vettly_tip_views');
+      localStorage.removeItem('vettly_tip_last_fetch');
+      
+      // Also clear any legacy keys that might be used
+      localStorage.removeItem('activeTip');
+      localStorage.removeItem('tipLastFetch');
+      
+      // Force clear any cached tip data in memory
+      window.location.reload();
+      
+      // Update state to show feedback
+      setCacheCleared(true);
+      
+      // Reset the feedback after 3 seconds
+      setTimeout(() => {
+        setCacheCleared(false);
+      }, 3000);
+      
+      alert('Weekly tip cache cleared successfully! The page will reload to apply changes.');
+    } catch (err) {
+      console.error('Error clearing tip cache:', err);
+      alert('Failed to clear tip cache');
     }
   };
 
@@ -320,6 +353,27 @@ export default function AdminTipsPage() {
                 <p className="text-xs text-gray-500 mt-2">
                   Requires OpenAI API key in environment variables.
                 </p>
+                
+                <div className="mt-4 border-t pt-4">
+                  <h3 className="text-lg font-semibold mb-2">Cache Management</h3>
+                  <button
+                    onClick={clearTipCache}
+                    className="w-full py-2 px-4 rounded bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Clear Weekly Tip Cache
+                  </button>
+                  {cacheCleared && (
+                    <p className="text-sm text-green-600 mt-2">
+                      Cache cleared successfully! The dashboard will now fetch fresh tip data.
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-2">
+                    Use this to force the dashboard to fetch the latest tip data from the database.
+                  </p>
+                </div>
               </div>
             </div>
           </div>

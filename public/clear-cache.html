@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clear Vettly Cache</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+      color: #333;
+    }
+    h1 {
+      color: #3373C4;
+    }
+    button {
+      background-color: #3373C4;
+      color: white;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+    button:hover {
+      background-color: #2D0F63;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 4px;
+      display: none;
+    }
+    .success {
+      background-color: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    pre {
+      background-color: #f8f9fa;
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>Vettly Cache Clearer</h1>
+  <p>This utility will clear the Vettly app's local storage cache, forcing it to fetch fresh data from the database.</p>
+  
+  <div>
+    <h2>Weekly Tip Cache</h2>
+    <p>Clear the weekly tip cache to force the app to fetch the latest tip data.</p>
+    <button id="clearTipCache">Clear Weekly Tip Cache</button>
+    <div id="tipCacheResult" class="result"></div>
+  </div>
+
+  <div style="margin-top: 30px;">
+    <h2>All Vettly Cache</h2>
+    <p>Clear all Vettly-related items from local storage.</p>
+    <button id="clearAllCache">Clear All Vettly Cache</button>
+    <div id="allCacheResult" class="result"></div>
+  </div>
+
+  <script>
+    // Local storage keys used by the app
+    const TIP_STORAGE_KEY = 'vettly_weekly_tip';
+    const TIP_VIEW_STORAGE_KEY = 'vettly_tip_views';
+    const TIP_LAST_FETCH_KEY = 'vettly_tip_last_fetch';
+
+    // Function to display the current local storage state
+    function displayLocalStorageState(elementId) {
+      const resultElement = document.getElementById(elementId);
+      resultElement.style.display = 'block';
+      resultElement.classList.add('success');
+
+      // Get all keys in local storage
+      const allKeys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        allKeys.push(localStorage.key(i));
+      }
+
+      // Filter for Vettly-related keys
+      const vettlyKeys = allKeys.filter(key => key && key.startsWith('vettly_'));
+      
+      // Create HTML content
+      let html = '<h3>Cache cleared successfully!</h3>';
+      
+      if (vettlyKeys.length > 0) {
+        html += '<p>Remaining Vettly items in local storage:</p>';
+        html += '<pre>';
+        vettlyKeys.forEach(key => {
+          html += `${key}\n`;
+        });
+        html += '</pre>';
+      } else {
+        html += '<p>No Vettly items remain in local storage.</p>';
+      }
+      
+      html += '<p>Refresh the Vettly app to fetch fresh data.</p>';
+      
+      resultElement.innerHTML = html;
+    }
+
+    // Clear weekly tip cache button
+    document.getElementById('clearTipCache').addEventListener('click', function() {
+      localStorage.removeItem(TIP_STORAGE_KEY);
+      localStorage.removeItem(TIP_LAST_FETCH_KEY);
+      displayLocalStorageState('tipCacheResult');
+    });
+
+    // Clear all Vettly cache button
+    document.getElementById('clearAllCache').addEventListener('click', function() {
+      // Get all keys in local storage
+      const allKeys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        allKeys.push(localStorage.key(i));
+      }
+
+      // Remove all Vettly-related items
+      allKeys.forEach(key => {
+        if (key && key.startsWith('vettly_')) {
+          localStorage.removeItem(key);
+        }
+      });
+
+      displayLocalStorageState('allCacheResult');
+    });
+  </script>
+</body>
+</html>

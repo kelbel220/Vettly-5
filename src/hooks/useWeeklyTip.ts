@@ -27,7 +27,7 @@ interface UseWeeklyTipReturn {
   setShowTipModal: (show: boolean) => void;
   markTipAsSeen: () => Promise<void>;
   dismissTip: () => Promise<void>;
-  refreshTip: () => Promise<void>;
+  refreshTip: (forceRefresh?: boolean) => Promise<void>;
 }
 
 /**
@@ -43,27 +43,33 @@ export function useWeeklyTip(): UseWeeklyTipReturn {
 
   /**
    * Fetches the current active tip from Firestore
+   * @param forceRefresh If true, ignores cache and fetches fresh data
    */
-  const fetchActiveTip = useCallback(async () => {
+  const fetchActiveTip = useCallback(async (forceRefresh = false) => {
     try {
       setLoading(true);
       setError(null);
       
-      // Check if we should fetch from Firestore or use cached tip
+      // Always fetch from Firestore to get the latest data
+      // This ensures we always have the most up-to-date content including whyMatters field
       let shouldFetchFromFirestore = true;
       const lastFetchTime = localStorage.getItem(TIP_LAST_FETCH_KEY);
       const storedTip = localStorage.getItem(TIP_STORAGE_KEY);
       
-      // If we have a stored tip and last fetch time, check if it's recent enough (within 5 minutes)
-      if (lastFetchTime && storedTip) {
-        const lastFetch = parseInt(lastFetchTime, 10);
-        const now = Date.now();
-        const fiveMinutesInMs = 5 * 60 * 1000;
-        
-        // Only use cached tip if it was fetched less than 5 minutes ago
-        if (now - lastFetch < fiveMinutesInMs) {
-          shouldFetchFromFirestore = false;
-          console.log('Using cached tip, last fetched', new Date(lastFetch).toLocaleTimeString());
+      // Only use cached data if explicitly not forcing refresh AND we have recent data
+      if (!forceRefresh) {
+        // If we have a stored tip and last fetch time, check if it's recent enough (within 1 minute)
+        if (lastFetchTime && storedTip) {
+          const lastFetch = parseInt(lastFetchTime, 10);
+          const now = Date.now();
+          // Reduced cache time to ensure fresher content
+          const thirtySecondsInMs = 30 * 1000;
+          
+          // Only use cached tip if it was fetched very recently
+          if (now - lastFetch < thirtySecondsInMs) {
+            shouldFetchFromFirestore = false;
+            console.log('Using cached tip, last fetched', new Date(lastFetch).toLocaleTimeString());
+          }
         }
       }
       
@@ -227,18 +233,24 @@ export function useWeeklyTip(): UseWeeklyTipReturn {
 
   /**
    * Refreshes the tip data
+   * @param forceRefresh If true, ignores cache and fetches fresh data
    */
-  const refreshTip = useCallback(async () => {
-    // Force a fresh fetch from Firestore by clearing the last fetch timestamp
-    localStorage.removeItem(TIP_LAST_FETCH_KEY);
-    await fetchActiveTip();
+  const refreshTip = useCallback(async (forceRefresh = false) => {
+    // If forceRefresh is true, clear all tip-related local storage to ensure fresh data
+    if (forceRefresh) {
+      console.log('Force refreshing tip - clearing all tip cache data');
+      localStorage.removeItem(TIP_LAST_FETCH_KEY);
+      localStorage.removeItem(TIP_STORAGE_KEY);
+      // Don't remove TIP_VIEW_STORAGE_KEY as that would reset which tips users have seen
+    }
+    await fetchActiveTip(forceRefresh);
   }, [fetchActiveTip]);
 
   // Effect to fetch the active tip on mount
   useEffect(() => {
-    // Always force a fresh fetch when the component mounts
-    localStorage.removeItem(TIP_LAST_FETCH_KEY);
-    fetchActiveTip();
+    // Fetch the active tip when the component mounts, but don't force refresh
+    // as that will be handled by the dashboard component when needed
+    fetchActiveTip(false);
   }, [fetchActiveTip]);
 
   // Automatically show the tip modal if there's a tip the user hasn't seen

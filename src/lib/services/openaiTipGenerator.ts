@@ -182,7 +182,8 @@ export function parseOpenAIResponse(response: any, category: WeeklyTipCategory):
       aiGenerated: true,
       quickTips: quickTips.slice(0, 5), // Limit to 5 tips
       didYouKnow: didYouKnowMatch ? didYouKnowMatch[1].trim() : '',
-      weeklyChallenge: challengeMatch ? challengeMatch[1].trim() : ''
+      weeklyChallenge: challengeMatch ? challengeMatch[1].trim() : '',
+      whyMatters: whyMattersMatch ? whyMattersMatch[1].trim() : ''
     });
     
     return weeklyTip;

@@ -39,6 +39,7 @@ export interface WeeklyTip {
   quickTips: string[];                 // List of quick actionable tips
   didYouKnow?: string;                 // Interesting fact related to the tip
   weeklyChallenge?: string;            // Challenge for users to try
+  whyMatters?: string;                 // Why this tip matters to users
   imageUrl?: string;                   // Optional image URL
   viewCount: number;                   // Number of total views
   uniqueViewCount: number;             // Number of unique users who viewed it
@@ -181,6 +182,30 @@ export function formatTipForDisplay(tip: WeeklyTip): WeeklyTip {
   
   if (formattedTip.expiresAt && typeof formattedTip.expiresAt === 'number') {
     formattedTip.expiresAt = new Date(formattedTip.expiresAt);
+  }
+  
+  // Ensure whyMatters field exists with proper content
+  if (!formattedTip.whyMatters || formattedTip.whyMatters.trim() === '') {
+    // Generate default whyMatters content based on category
+    switch (formattedTip.category) {
+      case WeeklyTipCategory.CONVERSATION_STARTERS:
+        formattedTip.whyMatters = 'Effective conversation starters help break the ice and establish a genuine connection. They show your interest in getting to know the other person and can reveal compatibility through shared interests or values.';
+        break;
+      case WeeklyTipCategory.DATE_IDEAS:
+        formattedTip.whyMatters = 'Creative date ideas can make your time together more memorable and enjoyable. They provide opportunities for authentic interaction and help you both relax and be yourselves.';
+        break;
+      case WeeklyTipCategory.RELATIONSHIP_ADVICE:
+        formattedTip.whyMatters = 'Understanding relationship dynamics helps build stronger connections. This insight allows you to navigate challenges more effectively and create a foundation of mutual respect and understanding.';
+        break;
+      case WeeklyTipCategory.MATCHMAKING_INSIGHTS:
+        formattedTip.whyMatters = 'Knowing what makes a good match helps you recognize compatibility factors that matter. This awareness guides better choices and increases your chances of finding a meaningful connection.';
+        break;
+      case WeeklyTipCategory.SELF_IMPROVEMENT:
+        formattedTip.whyMatters = 'Personal growth enhances your dating experience by building confidence and self-awareness. When you feel good about yourself, you bring your best self to relationships and attract partners who value you.';
+        break;
+      default:
+        formattedTip.whyMatters = 'This tip provides valuable guidance to enhance your dating experience. Applying these insights can lead to more meaningful connections and better outcomes in your relationships.';
+    }
   }
   
   return formattedTip;

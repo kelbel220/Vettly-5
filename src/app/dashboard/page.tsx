@@ -5,6 +5,7 @@ import { OrbField } from '../components/gradients/OrbField';
 import { AnimatedText } from '../components/text/AnimatedText';
 import { useWeeklyTip } from '@/hooks/useWeeklyTip';
 import { WeeklyTipButton } from '@/components/tips/WeeklyTipButton';
+import { WeeklyTipModal } from '@/components/tips/WeeklyTipModal';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { inter, playfair } from '../fonts';
@@ -54,8 +55,9 @@ export default function Dashboard() {
   
   // Always refresh the weekly tip when the dashboard mounts
   useEffect(() => {
-    console.log('Dashboard mounted, refreshing weekly tip');
-    refreshTip();
+    console.log('Dashboard mounted, refreshing weekly tip with force refresh');
+    // Use forceRefresh=true to bypass cache and get fresh data from Firestore
+    refreshTip(true);
   }, [refreshTip]);
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -664,197 +666,12 @@ export default function Dashboard() {
 
       {/* Tip Modal */}
       {showTipModal && tip && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-md">
-          <div className="bg-gradient-to-br from-[#4FB8E7] via-[#3373C4] to-[#2D0F63] rounded-3xl w-full max-w-3xl overflow-hidden border border-white/20 shadow-2xl">
-            {/* Modal Header */}
-            <div className="relative px-8 pt-8 pb-4 flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-[#00FFFF]/20 flex items-center justify-center border border-[#00FFFF]/40">
-                  {/* Icon based on tip category */}
-                  {tip.category === 'profile_improvement' && (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#00FFFF]">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                      <circle cx="12" cy="7" r="4"></circle>
-                    </svg>
-                  )}
-                  {tip.category === 'conversation_starters' && (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#00FFFF]">
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                    </svg>
-                  )}
-                  {tip.category === 'date_ideas' && (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#00FFFF]">
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                      <line x1="16" y1="2" x2="16" y2="6"></line>
-                      <line x1="8" y1="2" x2="8" y2="6"></line>
-                      <line x1="3" y1="10" x2="21" y2="10"></line>
-                    </svg>
-                  )}
-                  {tip.category === 'relationship_advice' && (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#00FFFF]">
-                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-                    </svg>
-                  )}
-                  {tip.category === 'matchmaking_insights' && (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#00FFFF]">
-                      <path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z"></path>
-                    </svg>
-                  )}
-                  {tip.category === 'self_improvement' && (
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#00FFFF]">
-                      <path d="M12 20h9"></path>
-                      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-                    </svg>
-                  )}
-                </div>
-                <div>
-                  <p className="text-[#00FFFF] text-xs uppercase tracking-widest font-inter font-medium">Weekly Insight</p>
-                  <h4 className={`${playfair.className} text-3xl font-bold text-white leading-tight`}>{tip.title}</h4>
-                </div>
-              </div>
-              <button 
-                onClick={() => {
-                  markTipAsSeen();
-                  setShowTipModal(false);
-                }}
-                className="h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
-                aria-label="Close modal"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
-              </button>
-            </div>
-            
-            {/* Date indicator */}
-            <div className="px-8 pb-4">
-              <div className="flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white/40 mr-2">
-                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                  <line x1="16" y1="2" x2="16" y2="6"></line>
-                  <line x1="8" y1="2" x2="8" y2="6"></line>
-                  <line x1="3" y1="10" x2="21" y2="10"></line>
-                </svg>
-                <p className="text-white/40 text-sm font-inter">
-                  {tip.publishedAt 
-                    ? (() => {
-                        try {
-                          const publishedAt = tip.publishedAt as any;
-                          
-                          if (typeof publishedAt === 'object' && publishedAt !== null) {
-                            if (publishedAt.toDate && typeof publishedAt.toDate === 'function') {
-                              // Firestore Timestamp object
-                              return format(publishedAt.toDate(), 'MMMM d, yyyy');
-                            } else if (publishedAt.seconds && typeof publishedAt.seconds === 'number') {
-                              // Timestamp-like object with seconds
-                              return format(new Date(publishedAt.seconds * 1000), 'MMMM d, yyyy');
-                            }
-                          }
-                          // Regular date string or timestamp
-                          return format(new Date(publishedAt), 'MMMM d, yyyy');
-                        } catch (error) {
-                          console.error('Error formatting date:', error);
-                          return format(new Date(), 'MMMM d, yyyy');
-                        }
-                      })()
-                    : format(new Date(), 'MMMM d, yyyy')}
-                </p>
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
-            
-            {/* Main Content */}
-            <div className="px-8 py-6">
-              <div className="text-white/90 max-w-none font-inter space-y-6">
-                <p className="text-lg leading-relaxed">
-                  {tip.shortDescription || tip.content?.substring(0, 150)}
-                </p>
-                
-                {/* Main Content */}
-                {tip.content && (
-                  <div className="pt-4">
-                    <div>
-                      <p className="text-base leading-relaxed whitespace-pre-line">
-                        {tip.content}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Why This Matters Section - Optional section if needed */}
-                <div className="pt-4">
-                  <h5 className={`${playfair.className} text-xl font-semibold mb-3 text-white`}>
-                    Why This Matters
-                  </h5>
-                  <div>
-                    <p className="text-base leading-relaxed">
-                      {tip.content && tip.content.length > 150 ? 
-                        tip.content.substring(0, 150) + "..." : 
-                        "Complete your profile to make meaningful connections and find your perfect match."}
-                    </p>
-                  </div>
-                </div>
-                
-                {/* Quick Tips Section */}
-                {tip.quickTips && tip.quickTips.length > 0 && (
-                  <div className="pt-4">
-                    <h5 className={`${playfair.className} text-xl font-semibold mb-3 text-white`}>
-                      Quick Tips
-                    </h5>
-                    <ul className="space-y-2 text-base">
-                      {tip.quickTips.map((tipItem, index) => (
-                        <li key={index} className="flex items-start">
-                          <span className="text-[#00FFFF] mr-2">•</span>
-                          <span>{tipItem}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                
-                {/* Did You Know Section */}
-                {tip.didYouKnow && (
-                  <div className="pt-4">
-                    <h5 className={`${playfair.className} text-xl font-semibold mb-3 text-white`}>
-                      Did You Know?
-                    </h5>
-                    <div className="bg-white/10 p-4 rounded-xl backdrop-blur-sm border border-white/10">
-                      <p className="text-base leading-relaxed">
-                        {tip.didYouKnow}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                
-                {/* This Week's Challenge Section */}
-                {tip.weeklyChallenge && (
-                  <div className="mt-8 bg-white/10 p-6 rounded-xl backdrop-blur-sm border border-white/10">
-                    <h5 className={`${playfair.className} text-xl font-semibold mb-3 text-white`}>This Week's Challenge</h5>
-                    <p className="text-base leading-relaxed">
-                      {tip.weeklyChallenge}
-                    </p>
-                  </div>
-                )}
-              </div>
-              
-              {/* Action Button */}
-              <div className="mt-10 mb-2 flex justify-center">
-                <button 
-                  onClick={() => {
-                    markTipAsSeen();
-                    setShowTipModal(false);
-                  }}
-                  className="bg-gradient-to-r from-[#00FFFF]/30 to-[#4FB8E7]/30 hover:from-[#00FFFF]/40 hover:to-[#4FB8E7]/40 backdrop-blur-sm text-white px-10 py-3 rounded-full transition-all text-base font-medium tracking-wide border border-[#00FFFF]/30 shadow-lg"
-                >
-                  I Get It
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <WeeklyTipModal
+          tip={tip}
+          isOpen={showTipModal}
+          onClose={() => setShowTipModal(false)}
+          onRead={markTipAsSeen}
+        />
       )}
     </div>
   );
