@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation';
 import { Menu, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import Link from 'next/link';
+import { EventCalendar } from '@/components/calendar/EventCalendar';
 
 // Add JSX type definitions
 declare global {
@@ -495,12 +496,9 @@ export default function Dashboard() {
 
                         </div>
                       </div>
-                    </div>
 
-                    {/* Right Column - Messages, Events, Tips */}
-                    <div>
-                      {/* Tips & Advice Section */}
-                      <div className="mb-8">
+                      {/* Tips & Advice Section - Desktop Only */}
+                      <div className="mb-8 hidden lg:block">
                         {/* Weekly Tip Button Component */}
                         <WeeklyTipButton
                           tip={tip}
@@ -509,7 +507,10 @@ export default function Dashboard() {
                           loading={tipLoading}
                         />
                       </div>
-                      
+                    </div>
+
+                    {/* Right Column - Messages, Events, Tips */}
+                    <div>
                       {/* Messages Section */}
                       <div className="mb-8">
                         <div className="p-6 rounded-xl backdrop-blur-lg bg-white/5 hover:bg-white/10 shadow-[0_8px_32px_rgb(31,38,135,0.15)] transition-all duration-300">
@@ -556,18 +557,25 @@ export default function Dashboard() {
                             </div>
                           </div>
 
-                          {/* No Events State */}
-                          <div className="bg-white/10 rounded-xl overflow-hidden">
-                            <div className="p-6 flex flex-col items-center text-center">
-
-                              <h4 className="text-xl font-normal text-[#5B3CDD] mb-2">No Events</h4>
-                              <p className="text-white text-base mb-4">Events will appear here</p>
-                            </div>
-                          </div>
+                          {/* Calendar Component */}
+                          <EventCalendar />
                         </div>
                       </div>
+
+
                     </div>
                   </div>
+                </div>
+
+                {/* Tips & Advice Section - Mobile Only */}
+                <div className="lg:hidden mb-8 mt-4">
+                  {/* Weekly Tip Button Component */}
+                  <WeeklyTipButton
+                    tip={tip}
+                    hasUserSeen={hasUserSeen}
+                    onClick={() => setShowTipModal(true)}
+                    loading={tipLoading}
+                  />
                 </div>
               </div>
             </section>
