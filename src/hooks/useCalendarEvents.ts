@@ -50,6 +50,7 @@ export const useCalendarEvents = () => {
       if (!auth?.currentUser) {
         console.log('No authenticated user found');
         setEvents([]);
+        setLoading(false);
         return;
       }
       
@@ -68,30 +69,62 @@ export const useCalendarEvents = () => {
         where('isRequest', '==', true)
       );
       
-      // Execute both queries
-      const [userEventsSnapshot, dateRequestsSnapshot] = await Promise.all([
-        getDocs(userEventsQuery),
-        getDocs(dateRequestsQuery)
-      ]);
+      // Also try to get all events from the calendar collection as a fallback
+      const allEventsQuery = query(
+        collection(db, 'calendar')
+      );
       
-      // Process results
-      const userEvents = userEventsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as CalendarEvent[];
-      
-      const dateRequests = dateRequestsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as CalendarEvent[];
-      
-      console.log('User events fetched:', userEvents.length);
-      console.log('Date requests fetched:', dateRequests.length);
-      
-      // Combine all events
-      const allEvents = [...userEvents, ...dateRequests];
-      setEvents(allEvents);
-      
+      try {
+        // Execute all queries
+        const [userEventsSnapshot, dateRequestsSnapshot, allEventsSnapshot] = await Promise.all([
+          getDocs(userEventsQuery),
+          getDocs(dateRequestsQuery),
+          getDocs(allEventsQuery)
+        ]);
+        
+        // Process results
+        const userEvents = userEventsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as CalendarEvent[];
+        
+        const dateRequests = dateRequestsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as CalendarEvent[];
+        
+        const calendarEvents = allEventsSnapshot.docs.map(doc => {
+          const data = doc.data();
+          // Make sure the data conforms to our CalendarEvent interface
+          return {
+            id: doc.id,
+            title: data.title || 'Untitled Event',
+            start: data.start || new Date().toISOString(),
+            end: data.end,
+            userId: data.userId || auth.currentUser?.uid || '',
+            ...data
+          };
+        }) as CalendarEvent[];
+        
+        console.log('User events fetched:', userEvents.length);
+        console.log('Date requests fetched:', dateRequests.length);
+        console.log('Calendar events fetched:', calendarEvents.length);
+        
+        // Combine all events, prioritizing user events and date requests
+        const combinedEvents = [...userEvents, ...dateRequests];
+        
+        // Only add calendar events that don't overlap with existing events
+        const existingIds = new Set(combinedEvents.map(e => e.id));
+        const uniqueCalendarEvents = calendarEvents.filter(e => !existingIds.has(e.id));
+        
+        const allEvents = [...combinedEvents, ...uniqueCalendarEvents];
+        console.log('Total events after combining:', allEvents.length);
+        
+        setEvents(allEvents);
+      } catch (queryErr) {
+        console.error('Error executing queries:', queryErr);
+        throw queryErr;
+      }
     } catch (err) {
       console.error('Error loading events:', err);
       setError('Failed to load events. Please try again.');
@@ -199,12 +232,19 @@ export const useCalendarEvents = () => {
   // Load events on mount and when auth changes
   useEffect(() => {
     if (auth?.currentUser) {
-      loadEvents();
+      console.log('Auth state changed, loading events for user:', auth.currentUser.uid);
+      loadEvents(true); // Force refresh when auth changes
     } else {
+      console.log('No authenticated user, clearing events');
       setEvents([]);
       setLoading(false);
     }
   }, [auth?.currentUser]);
+  
+  // Debug effect to log events when they change
+  useEffect(() => {
+    console.log('Events state updated, count:', events.length);
+  }, [events]);
 
   return {
     events,

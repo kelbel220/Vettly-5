@@ -29,6 +29,7 @@ interface UserProfile {
   age?: number;
   location?: string;
   relationshipStatus?: string;
+  maritalStatus?: string;
   children?: string;
   childrenAges?: string;
   hasChildren?: boolean;
@@ -121,34 +122,137 @@ export default function Profile() {
   };
   // Summary generation feature has been removed
 
+  // Function to calculate age from date of birth in various formats
+  const calculateAge = (dob: string | undefined): number | null => {
+    if (!dob) return null;
+    
+    console.log('Calculating age from DOB:', dob);
+    
+    let birthDate: Date | null = null;
+    
+    try {
+      // Try to parse the date in various formats
+      if (dob.includes('.')) {
+        // Australian format (DD.MM.YYYY)
+        const parts = dob.split('.');
+        if (parts.length === 3) {
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10) - 1; // Month is 0-indexed in JavaScript Date
+          const year = parseInt(parts[2], 10);
+          birthDate = new Date(year, month, day);
+        }
+      } else if (dob.includes('/')) {
+        // Format with slashes (DD/MM/YYYY for Australian format)
+        const parts = dob.split('/');
+        if (parts.length === 3) {
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10) - 1;
+          const year = parseInt(parts[2], 10);
+          birthDate = new Date(year, month, day);
+        }
+      } else if (dob.includes('-')) {
+        // ISO format (YYYY-MM-DD)
+        const parts = dob.split('-');
+        if (parts.length === 3) {
+          // Check if first part is a 4-digit year (YYYY-MM-DD)
+          if (parts[0].length === 4) {
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const day = parseInt(parts[2], 10);
+            birthDate = new Date(year, month, day);
+          } else {
+            // Likely DD-MM-YYYY
+            const day = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const year = parseInt(parts[2], 10);
+            birthDate = new Date(year, month, day);
+          }
+        }
+      } else {
+        // Try standard JavaScript date parsing
+        const parsedDate = new Date(dob);
+        if (!isNaN(parsedDate.getTime())) {
+          birthDate = parsedDate;
+        }
+      }
+      
+      // If we couldn't parse the date, return null
+      if (!birthDate || isNaN(birthDate.getTime())) {
+        console.log('Failed to parse date');
+        return null;
+      }
+      
+      console.log('Successfully parsed birth date:', birthDate);
+      
+      // Calculate age based on the current date (2025-06-19 from metadata)
+      const today = new Date(2025, 5, 19); // June 19, 2025 (months are 0-indexed)
+      
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      
+      // If birthday hasn't occurred yet this year, subtract 1 from age
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      
+      console.log('Calculated age:', age);
+      return age;
+    } catch (error) {
+      console.error('Error calculating age:', error);
+      return null;
+    }
+  };
+  
   // Function to format children information
   const formatChildrenInfo = (userData: any) => {
-    // Check if user has children
-    const hasChildren = userData.hasChildren || 
-                       (userData.questionnaireAnswers && userData.questionnaireAnswers.hasChildren);
+    // Check if user has children directly from hasChildren field
+    const hasChildren = userData.hasChildren;
     
     if (!hasChildren) {
       return 'No children';
     }
     
-    // Try to get children details from various possible locations in the data
-    const childrenInfo = userData.childrenDetails || 
-                         userData.childrenAges || 
-                         (userData.questionnaireAnswers && userData.questionnaireAnswers.childrenAges);
+    // Try to get children details from questionnaire answers
+    const childrenAges = userData.questionnaireAnswers?.childrenAges;
     
-    if (childrenInfo) {
-      return childrenInfo; // Return the formatted children info if it exists
+    if (childrenAges) {
+      return childrenAges; // Return the formatted children info if it exists
     }
     
     // If we have number of children but no details, try to generate basic info
-    const numberOfChildren = userData.numberOfChildren || 
-                            (userData.questionnaireAnswers && userData.questionnaireAnswers.numberOfChildren);
+    const numberOfChildren = userData.questionnaireAnswers?.numberOfChildren;
     
     if (numberOfChildren) {
       return `Has ${numberOfChildren} children`;
     }
     
     return 'Has children'; // Default fallback
+  };
+
+  // Function to simplify smoking habit display
+  const formatSmokingHabit = (habit: string | undefined): string => {
+    if (!habit) return 'Not specified';
+    
+    // Check if the habit contains explanatory text in parentheses
+    if (habit.toLowerCase().includes('never')) {
+      return 'No';
+    }
+    
+    // For other cases, return the habit as is or simplify based on common patterns
+    return habit;
+  };
+
+  // Function to simplify drinking habit display
+  const formatDrinkingHabit = (habit: string | undefined): string => {
+    if (!habit) return 'Not specified';
+    
+    // Check if the habit contains explanatory text in parentheses
+    if (habit.toLowerCase().includes('socially')) {
+      return 'Socially';
+    }
+    
+    // For other cases, return the habit as is or simplify based on common patterns
+    return habit;
   };
 
   useEffect(() => {
@@ -160,6 +264,70 @@ export default function Profile() {
           
           if (userSnap.exists()) {
             const userData = userSnap.data() as UserProfile;
+            console.log('Firebase userData:', userData);
+            console.log('Questionnaire Answers:', userData.questionnaireAnswers);
+            
+            // Log all keys in questionnaireAnswers to find the correct field name
+            if (userData.questionnaireAnswers) {
+              console.log('COMPLETE FIREBASE USER DATA:', userData);
+              console.log('COMPLETE QUESTIONNAIRE ANSWERS:', userData.questionnaireAnswers);
+              console.log('All questionnaire answer keys:', Object.keys(userData.questionnaireAnswers));
+              
+              // Log specific relationship status fields
+              console.log('RELATIONSHIP STATUS DEBUG:');
+              console.log('userData.relationshipStatus:', userData.relationshipStatus);
+              // Access maritalStatus safely with optional chaining
+              console.log('userData.questionnaireAnswers.maritalStatus:', userData.questionnaireAnswers?.maritalStatus);
+              
+              // Log age fields
+              console.log('AGE DEBUG:');
+              console.log('userData.age:', userData.age);
+              console.log('userData.dob:', userData.dob);
+              console.log('userData.questionnaireAnswers.age:', userData.questionnaireAnswers?.age);
+              console.log('userData.questionnaireAnswers.attraction_age:', userData.questionnaireAnswers?.attraction_age);
+              console.log('userData.questionnaireAnswers.personal_age:', userData.questionnaireAnswers?.personal_age);
+              console.log('userData.questionnaireAnswers.personal_dob:', userData.questionnaireAnswers?.personal_dob);
+              console.log('userData.questionnaireAnswers.dob:', userData.questionnaireAnswers?.dob);
+              
+              // Log ALL fields that might contain date information
+              console.log('SEARCHING FOR DATE FIELDS:');
+              Object.keys(userData).forEach(key => {
+                const value = (userData as Record<string, any>)[key];
+                if (typeof value === 'string' && 
+                    (key.toLowerCase().includes('date') || key.toLowerCase().includes('dob') || key.toLowerCase().includes('birth'))) {
+                  console.log(`userData.${key}:`, value);
+                }
+              });
+              
+              if (userData.questionnaireAnswers) {
+                Object.keys(userData.questionnaireAnswers).forEach(key => {
+                  const value = userData.questionnaireAnswers?.[key];
+                  if (typeof value === 'string' && 
+                      (key.toLowerCase().includes('date') || key.toLowerCase().includes('dob') || key.toLowerCase().includes('birth'))) {
+                    console.log(`userData.questionnaireAnswers.${key}:`, value);
+                  }
+                });
+              }
+              
+              // Log all questionnaire answers with their values
+              console.log('DETAILED QUESTIONNAIRE DATA:');
+              Object.keys(userData.questionnaireAnswers).forEach(key => {
+                console.log(`${key}:`, userData.questionnaireAnswers?.[key]);
+              });
+              
+              // Check for nested data structure
+              if (userData.questionnaireAnswers.relationship) {
+                console.log('NESTED RELATIONSHIP DATA:', userData.questionnaireAnswers.relationship);
+              }
+              
+              if (userData.questionnaireAnswers.lifestyle) {
+                console.log('NESTED LIFESTYLE DATA:', userData.questionnaireAnswers.lifestyle);
+              }
+              
+              if (userData.questionnaireAnswers.physical) {
+                console.log('NESTED PHYSICAL DATA:', userData.questionnaireAnswers.physical);
+              }
+            }
             
             // Process children information
             if (!userData.childrenAges && userData.hasChildren) {
@@ -758,7 +926,12 @@ export default function Profile() {
               <div className="flex flex-col">
                 <div className="flex items-baseline">
                   <span className={`${playfair.className} text-[2rem] font-bold text-[#73FFF6]`}>{userData.firstName},</span>
-                  <span className={`${playfair.className} text-[1.8rem] text-[#73FFF6] ml-2`} style={{position: 'relative', top: '-2px'}}>{userData.age || '39'}</span>
+                  <span className={`${playfair.className} text-[1.8rem] text-[#73FFF6] ml-2`} style={{position: 'relative', top: '-2px'}}>
+                    {calculateAge(userData.dob || userData.questionnaireAnswers?.personal_dob) || 
+                     userData.questionnaireAnswers?.personal_age || 
+                     userData.age || 
+                     'Not specified'}
+                  </span>
                 </div>
                 <p className={`${playfair.className} text-[#73FFF6] text-2xl mt-2 mb-4 font-medium`}>{userData.location || `${userData.suburb || 'Sydney'}, ${userData.state || 'NSW'}`}</p>
               </div>
@@ -799,7 +972,12 @@ export default function Profile() {
                 <div>
                 <div className="flex items-baseline">
                   <span className={`${playfair.className} text-[2.5rem] font-bold text-[#3B00CC]`}>{userData.firstName},</span>
-                  <span className={`${playfair.className} text-[2.2rem] text-[#3B00CC] ml-2`} style={{position: 'relative', top: '-4px'}}>{userData.age || '39'}</span>
+                  <span className={`${playfair.className} text-[2.2rem] text-[#3B00CC] ml-2`} style={{position: 'relative', top: '-4px'}}>
+                    {calculateAge(userData.dob || userData.questionnaireAnswers?.personal_dob) || 
+                     userData.questionnaireAnswers?.personal_age || 
+                     userData.age || 
+                     'Not specified'}
+                  </span>
                 </div>
                 <p className={`${playfair.className} text-[#3B00CC] text-2xl mt-2 mb-4 font-medium`}>{userData.location || `${userData.suburb || 'Sydney'}, ${userData.state || 'NSW'}`}</p>
                 </div>
@@ -829,7 +1007,7 @@ export default function Profile() {
                           <div>
                             <p className="text-xs text-white/70">Profession</p>
                             <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>
-                              {userData.questionnaireAnswers?.lifestyle_profession || userData.profession || 'Lawyer'}
+                              {userData.questionnaireAnswers?.lifestyle_profession || 'Not specified'}
                             </p>
                           </div>
                         </div>
@@ -847,7 +1025,9 @@ export default function Profile() {
                           </div>
                           <div>
                             <p className="text-xs text-white/70">Status</p>
-                            <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>Separated</p>
+                            <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>
+                              {userData.maritalStatus || 'Not specified'}
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -863,7 +1043,7 @@ export default function Profile() {
                           <div>
                             <p className="text-xs text-white/70">Smoking</p>
                             <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>
-                              {userData.questionnaireAnswers?.lifestyle_smoking || userData.smokingStatus || 'Occasionally (socially or on rare occasions)'}
+                              {formatSmokingHabit(userData.questionnaireAnswers?.lifestyle_smoking)}
                             </p>
                           </div>
                         </div>
@@ -876,7 +1056,7 @@ export default function Profile() {
                           <div>
                             <p className="text-xs text-white/70">Drinking</p>
                             <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>
-                              {userData.questionnaireAnswers?.lifestyle_drinking || userData.drinkingHabits || 'Social drinker'}
+                              {formatDrinkingHabit(userData.questionnaireAnswers?.lifestyle_alcohol)}
                             </p>
                           </div>
                         </div>
@@ -895,7 +1075,7 @@ export default function Profile() {
                           <div>
                             <p className="text-xs text-white/70">Height</p>
                             <p className="text-white font-medium" style={{fontFamily: inter.style.fontFamily}}>
-                              {userData.questionnaireAnswers?.physical_height || userData.height || '5\'10"'}
+                              {userData.questionnaireAnswers?.attraction_height || 'Not specified'}
                             </p>
                           </div>
                         </div>
@@ -925,33 +1105,22 @@ export default function Profile() {
                   <div className="mt-8 lg:mt-0 mb-4">
                     <h2 className="text-2xl font-semibold text-white mb-4">Interests</h2>
                     <div className="grid grid-cols-3 lg:grid-cols-2 gap-2 w-full">
-                      {userData.interests ? (
-                        userData.interests.map((interest, index) => (
+                      {userData.questionnaireAnswers?.lifestyle_hobbiesTypes && userData.questionnaireAnswers.lifestyle_hobbiesTypes.length > 0 ? (
+                        userData.questionnaireAnswers.lifestyle_hobbiesTypes.map((interest: string, index: number) => (
                           <div key={index} className="h-10 bg-white/90 text-[#3B00CC] rounded-full text-sm font-medium shadow-sm flex items-center justify-center">
                             {interest}
                           </div>
                         ))
                       ) : (
-                        ['Reading', 'Travel', 'Fitness', 'Cooking', 'Movies'].map((interest, index) => (
-                          <div key={index} className="h-10 bg-white/90 text-[#3B00CC] rounded-full text-sm font-medium shadow-sm flex items-center justify-center">
-                            {interest}
-                          </div>
-                        ))
+                        <div className="col-span-3 lg:col-span-2 text-white text-sm py-2">
+                          No interests found in your questionnaire responses.
+                        </div>
                       )}
                     </div>
                   </div>
                   
                   {/* Personal Summary section */}
                   <div className="mt-8 mb-8">
-                    <button 
-                      onClick={() => {
-                        console.log('userData:', userData);
-                        alert('Check console for userData contents');
-                      }}
-                      className="mb-4 px-3 py-1 bg-gray-500 text-white rounded-lg text-xs"
-                    >
-                      Debug: Show userData
-                    </button>
                     <h2 className="text-2xl font-semibold text-white mb-4">Personal Summary</h2>
                     <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 w-full">
                       <p className="text-white text-sm leading-relaxed" style={{fontFamily: inter.style.fontFamily}}>

@@ -156,6 +156,9 @@ export default function ProfileImages() {
           }));
           
           setLoading(false);
+          
+          // Redirect to dashboard after successful upload
+          router.push('/dashboard');
         }
       );
     } catch (err) {

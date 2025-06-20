@@ -40,8 +40,12 @@ export const WeeklyTipModal: React.FC<WeeklyTipModalProps> = ({
         
         // Force set whyMatters field with default content based on category
         // This ensures it always has content regardless of what's in the database
-        updatedTip.whyMatters = getDefaultWhyMattersContent(updatedTip.category);
-        console.log('Set whyMatters content for category:', updatedTip.category);
+        updatedTip.whyMatters = updatedTip.whyMatters || getDefaultWhyMattersContent(updatedTip.category);
+        
+        // Ensure quickTips is always an array
+        if (!updatedTip.quickTips || !Array.isArray(updatedTip.quickTips)) {
+          updatedTip.quickTips = [];
+        }
         
         // Log the processed tip data
         console.log('Processed tip data:', JSON.stringify(updatedTip));
@@ -187,8 +191,8 @@ export const WeeklyTipModal: React.FC<WeeklyTipModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-md">
-      <div className="bg-gradient-to-br from-[#4FB8E7] via-[#3373C4] to-[#2D0F63] rounded-3xl w-full max-w-3xl overflow-hidden border border-white/20 shadow-2xl">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-md overflow-y-auto">
+      <div className="bg-gradient-to-br from-[#4FB8E7] via-[#3373C4] to-[#2D0F63] rounded-3xl w-full max-w-5xl overflow-hidden border border-white/20 shadow-2xl my-8">
         {/* Modal Header */}
         <div className="relative px-8 pt-8 pb-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
@@ -233,14 +237,10 @@ export const WeeklyTipModal: React.FC<WeeklyTipModalProps> = ({
         <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
         
         {/* Main Content */}
-        <div className="px-8 py-6">
+        <div className="px-8 py-6 overflow-y-auto max-h-[70vh] md:max-h-[80vh]">
           <div className="text-white/90 max-w-none font-inter space-y-6">
-            <p className="text-lg leading-relaxed">
-              {processedTip.shortDescription}
-            </p>
-            
             {/* Main Content */}
-            <div className="pt-4">
+            <div>
               <div>
                 <p className="text-base leading-relaxed whitespace-pre-line">
                   {processedTip.content}
@@ -283,11 +283,9 @@ export const WeeklyTipModal: React.FC<WeeklyTipModalProps> = ({
                 <h5 className={`${playfair.className} text-xl font-semibold mb-3 text-white`}>
                   Did You Know?
                 </h5>
-                <div className="bg-white/10 p-4 rounded-xl backdrop-blur-sm border border-white/10">
-                  <p className="text-base leading-relaxed">
-                    {tip.didYouKnow}
-                  </p>
-                </div>
+                <p className="text-base leading-relaxed">
+                  {processedTip.didYouKnow}
+                </p>
               </div>
             )}
             
@@ -295,7 +293,7 @@ export const WeeklyTipModal: React.FC<WeeklyTipModalProps> = ({
             {processedTip.weeklyChallenge && (
               <div className="mt-8 bg-white/10 p-6 rounded-xl backdrop-blur-sm border border-white/10">
                 <h5 className={`${playfair.className} text-xl font-semibold mb-3 text-white`}>This Week's Challenge</h5>
-                <p className="text-base leading-relaxed">
+                <p className="text-base leading-relaxed text-white">
                   {processedTip.weeklyChallenge}
                 </p>
               </div>
@@ -306,9 +304,9 @@ export const WeeklyTipModal: React.FC<WeeklyTipModalProps> = ({
           <div className="mt-10 mb-2 flex justify-center">
             <button 
               onClick={onClose}
-              className="bg-gradient-to-r from-[#00FFFF]/30 to-[#4FB8E7]/30 hover:from-[#00FFFF]/40 hover:to-[#4FB8E7]/40 backdrop-blur-sm text-white px-10 py-3 rounded-full transition-all text-base font-medium tracking-wide border border-[#00FFFF]/30 shadow-lg"
+              className="bg-[#00FFFF] hover:bg-[#00CCCC] text-black px-10 py-3 rounded-full transition-all text-base font-medium tracking-wide shadow-lg"
             >
-              I Get It
+              Close
             </button>
           </div>
         </div>

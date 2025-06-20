@@ -189,6 +189,21 @@ const SECTIONS = [
 // Maximum questions per page
 const MAX_QUESTIONS_PER_PAGE = 6;
 
+// Helper function to standardize question IDs for partner preferences
+const standardizeQuestionId = (questionId: string, sectionId: string): string => {
+  // If this is the dealBreakers section, we'll handle it specially
+  if (sectionId === 'dealBreakers' && questionId === 'dealBreakers') {
+    return questionId;
+  }
+  
+  // If the question ID ends with 'Partner', rename it to start with 'partner'
+  if (questionId.endsWith('Partner')) {
+    return 'partner' + questionId.charAt(0).toUpperCase() + questionId.slice(1, -7);
+  }
+  
+  return questionId;
+};
+
 export default function Questionnaire() {
   const auth: AuthContextType = useAuth();
   const router = useRouter();
@@ -262,7 +277,15 @@ export default function Questionnaire() {
   const currentQuestions = currentSectionData.questions.slice(startIdx, endIdx);
 
   const handleAnswer = (questionId: string, value: any) => {
-    const answerId = `${currentSectionData.id}_${questionId}`;
+    // Standardize the question ID for partner preferences
+    const standardizedQuestionId = standardizeQuestionId(questionId, currentSectionData.id);
+    
+    // Log the change if standardization occurred
+    if (standardizedQuestionId !== questionId) {
+      console.log(`Standardizing partner field: ${questionId} -> ${standardizedQuestionId}`);
+    }
+    
+    const answerId = `${currentSectionData.id}_${standardizedQuestionId}`;
     
     // Clear other input if selecting a different option
     if (typeof value === 'string' && !value.includes('Other') && typeof answers[answerId] === 'string' && answers[answerId]?.includes('Other')) {
@@ -280,7 +303,15 @@ export default function Questionnaire() {
   };
   
   const handleMultiselect = (questionId: string, value: string) => {
-    const answerId = `${currentSectionData.id}_${questionId}`;
+    // Standardize the question ID for partner preferences
+    const standardizedQuestionId = standardizeQuestionId(questionId, currentSectionData.id);
+    
+    // Log the change if standardization occurred
+    if (standardizedQuestionId !== questionId) {
+      console.log(`Standardizing partner field: ${questionId} -> ${standardizedQuestionId}`);
+    }
+    
+    const answerId = `${currentSectionData.id}_${standardizedQuestionId}`;
     const currentValues = answers[answerId] || [];
     
     let newValues;
@@ -304,7 +335,15 @@ export default function Questionnaire() {
   };
   
   const handleOtherInput = (questionId: string, value: string) => {
-    const answerId = `${currentSectionData.id}_${questionId}`;
+    // Standardize the question ID for partner preferences
+    const standardizedQuestionId = standardizeQuestionId(questionId, currentSectionData.id);
+    
+    // Log the change if standardization occurred
+    if (standardizedQuestionId !== questionId) {
+      console.log(`Standardizing partner field: ${questionId} -> ${standardizedQuestionId}`);
+    }
+    
+    const answerId = `${currentSectionData.id}_${standardizedQuestionId}`;
     setOtherInputs(prev => ({
       ...prev,
       [answerId]: value
@@ -350,6 +389,68 @@ export default function Questionnaire() {
     }
   };
 
+  // Function to format date to Australian format (DD.MM.YYYY)
+  const formatDateToAustralian = (dateString: string): string => {
+    if (!dateString) return dateString;
+    
+    try {
+      // Check if the date is already in Australian format (DD.MM.YYYY)
+      if (/^\d{2}\.\d{2}\.\d{4}$/.test(dateString)) {
+        return dateString;
+      }
+      
+      // Handle ISO format (YYYY-MM-DD)
+      if (/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+        const date = new Date(dateString);
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}.${month}.${year}`;
+      }
+      
+      // Handle other formats with slashes (DD/MM/YYYY)
+      if (dateString.includes('/')) {
+        const parts = dateString.split('/');
+        if (parts.length === 3) {
+          // Assume DD/MM/YYYY format
+          if (parts[0].length <= 2 && parts[1].length <= 2 && parts[2].length === 4) {
+            return `${parts[0].padStart(2, '0')}.${parts[1].padStart(2, '0')}.${parts[2]}`;
+          }
+          // Assume MM/DD/YYYY format
+          if (parts[0].length <= 2 && parts[1].length <= 2 && parts[2].length === 4) {
+            return `${parts[1].padStart(2, '0')}.${parts[0].padStart(2, '0')}.${parts[2]}`;
+          }
+        }
+      }
+      
+      // Handle other formats with dashes (DD-MM-YYYY)
+      if (dateString.includes('-') && !/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+        const parts = dateString.split('-');
+        if (parts.length === 3) {
+          // Assume DD-MM-YYYY format
+          if (parts[0].length <= 2 && parts[1].length <= 2 && parts[2].length === 4) {
+            return `${parts[0].padStart(2, '0')}.${parts[1].padStart(2, '0')}.${parts[2]}`;
+          }
+        }
+      }
+      
+      // If we can't parse it in a specific format, try using Date object
+      const date = new Date(dateString);
+      if (!isNaN(date.getTime())) {
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}.${month}.${year}`;
+      }
+      
+      // Return original if we can't parse it
+      return dateString;
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return dateString;
+    }
+  };
+
   const saveProgress = async (isComplete = false) => {
     if (!auth.currentUser) return;
     
@@ -357,9 +458,65 @@ export default function Questionnaire() {
     try {
       const userRef = doc(db, 'users', auth.currentUser.uid);
       
-      // Base update data
+      // Format any date fields to Australian format (DD.MM.YYYY)
+      const formattedAnswers = { ...answers };
+      
+      // Check if personal_dob exists in answers and format it
+      if (formattedAnswers.personal_dob) {
+        formattedAnswers.personal_dob = formatDateToAustralian(formattedAnswers.personal_dob);
+        console.log('Formatted personal_dob to Australian format:', formattedAnswers.personal_dob);
+      }
+      
+      // Special handling for partner has children deal breaker
+      const dealBreakersKey = 'dealBreakers_dealBreakers';
+      if (formattedAnswers[dealBreakersKey] && Array.isArray(formattedAnswers[dealBreakersKey])) {
+        const partnerHasChildrenOption = "I wouldn't date someone who already has children";
+        const hasPartnerChildrenDealBreaker = formattedAnswers[dealBreakersKey].includes(partnerHasChildrenOption);
+        
+        // Add a more descriptive field for partner having children
+        formattedAnswers['partnerHasChildren'] = hasPartnerChildrenDealBreaker ? 'No' : 'Yes';
+        console.log(`Setting partnerHasChildren to ${formattedAnswers['partnerHasChildren']} based on deal breaker selection`);
+      }
+      
+      // Log all partner preference fields for debugging
+      console.log('Partner preference fields in questionnaire answers:');
+      Object.keys(formattedAnswers).forEach(key => {
+        if (key.includes('partner')) {
+          console.log(`- ${key}: ${formattedAnswers[key]}`);
+        }
+      });
+      
+      // Also copy the DOB from the user profile if available and format it
+      try {
+        const userDoc = await getDoc(userRef);
+        const userData = userDoc.data();
+        if (userData?.dob && !formattedAnswers.personal_dob) {
+          const formattedDob = formatDateToAustralian(userData.dob);
+          formattedAnswers.personal_dob = formattedDob;
+          console.log('Copied DOB from user profile:', formattedAnswers.personal_dob);
+          
+          // Also update the user's DOB field to ensure it's in Australian format
+          if (formattedDob !== userData.dob) {
+            await updateDoc(userRef, { dob: formattedDob });
+            console.log('Updated user profile DOB to Australian format:', formattedDob);
+          }
+        }
+        
+        // If we have existing questionnaire answers, check for any partner preferences we need to preserve
+        if (userData?.questionnaireAnswers) {
+          // If we don't have a new value for partnerHasChildren but there's an existing one, preserve it
+          if (userData.questionnaireAnswers.partnerHasChildren && !formattedAnswers.partnerHasChildren) {
+            formattedAnswers.partnerHasChildren = userData.questionnaireAnswers.partnerHasChildren;
+            console.log('Preserved existing partnerHasChildren value:', formattedAnswers.partnerHasChildren);
+          }
+        }
+      } catch (error) {
+        console.error('Error getting user data for DOB formatting:', error);
+      }
+      
+      // Base update data with formatted answers
       const updateData: Record<string, any> = {
-        questionnaireAnswers: answers,
+        questionnaireAnswers: formattedAnswers,
         completedSections: completedSections,
         questionnaireCompleted: isComplete,
         questionnaireLastUpdated: new Date().toISOString()
@@ -368,12 +525,26 @@ export default function Questionnaire() {
       // If the questionnaire is complete, generate a summary using ChatGPT
       if (isComplete) {
         try {
+          // Get the user's first name from Firebase
+          let firstName = '';
+          try {
+            const userDoc = await getDoc(userRef);
+            const userData = userDoc.data();
+            firstName = userData?.firstName || '';
+            console.log('Retrieved firstName for summary generation:', firstName);
+          } catch (error) {
+            console.error('Error getting user firstName:', error);
+          }
+          
           const response = await fetch('/api/generate-summary', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ questionnaireAnswers: answers })
+            body: JSON.stringify({ 
+              questionnaireAnswers: formattedAnswers,
+              firstName: firstName
+            })
           });
           
           if (response.ok) {
@@ -593,7 +764,7 @@ export default function Questionnaire() {
           <div className="flex flex-col items-center max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto px-6 py-8 text-center flex-grow justify-center">
 
             
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-8">Before You Begin</h1>
+            <h1 className={`${playfair.className} text-4xl md:text-5xl font-bold text-white mb-8`}>Before You Begin</h1>
             
             <div className="bg-white/10 backdrop-blur-sm p-8 rounded-xl border border-white/20 shadow-xl">
               <p className={`${inter.className} text-white text-lg mb-6 leading-relaxed`}>
@@ -650,7 +821,7 @@ export default function Questionnaire() {
           </div>
           <div className="flex flex-col items-center max-w-2xl md:max-w-3xl lg:max-w-4xl mx-auto px-6 py-8 text-center flex-grow justify-center">
             
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-8">You're All Done</h1>
+            <h1 className={`${playfair.className} text-4xl md:text-5xl font-bold text-white mb-8`}>You're All Done</h1>
             
             <div className="bg-white/10 backdrop-blur-sm p-8 rounded-xl border border-white/20 shadow-xl">
               <p className={`${inter.className} text-white text-lg mb-6 leading-relaxed`}>

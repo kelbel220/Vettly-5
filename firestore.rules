@@ -39,6 +39,36 @@ service cloud.firestore {
       allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
     }
     
+    // Calendar events collection - users can read/write their own events
+    match /calendar_events/{eventId} {
+      allow read: if request.auth != null && 
+                 (resource.data.userId == request.auth.uid || 
+                  resource.data.requestToUserId == request.auth.uid);
+      allow create: if request.auth != null && 
+                   request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null && 
+                   (resource.data.userId == request.auth.uid || 
+                    resource.data.requestToUserId == request.auth.uid);
+      allow delete: if request.auth != null && 
+                   resource.data.userId == request.auth.uid;
+    }
+    
+    // Calendar collection (alternative location for events)
+    match /calendar/{eventId} {
+      // Allow authenticated users to read all calendar events
+      allow read: if request.auth != null;
+      // Allow users to create events with their user ID
+      allow create: if request.auth != null && 
+                   request.resource.data.userId == request.auth.uid;
+      // Allow users to update their own events
+      allow update: if request.auth != null && 
+                   (resource.data.userId == request.auth.uid || 
+                    resource.data.requestToUserId == request.auth.uid);
+      // Allow users to delete their own events
+      allow delete: if request.auth != null && 
+                   resource.data.userId == request.auth.uid;
+    }
+    
     // Add rules for any other collections your app uses
     // For example, if you have a matches collection for user matching:
     match /matches/{matchId} {

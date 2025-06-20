@@ -96,6 +96,24 @@ export default function SignupPage() {
     }));
   };
 
+  // Function to format date to Australian format (DD.MM.YYYY)
+  const formatDateToAustralian = (dateString: string): string => {
+    try {
+      // Parse the input date (which comes from a date input, so it's in YYYY-MM-DD format)
+      const date = new Date(dateString);
+      
+      // Format to DD.MM.YYYY
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      
+      return `${day}.${month}.${year}`;
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return dateString; // Return original if there's an error
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -131,13 +149,21 @@ export default function SignupPage() {
         }
       }
 
+      // Format the date of birth to Australian format (DD.MM.YYYY)
+      const formattedData = {
+        ...formData,
+        dob: formatDateToAustralian(formData.dob)
+      };
+      
+      console.log('Saving DOB in Australian format:', formattedData.dob);
+
       if (signupMethod === 'email') {
-        await signup(formData);
+        await signup(formattedData);
       } else if (signupMethod === 'google') {
         await signupWithGoogle();
         if (currentUser) {
           await setDoc(doc(db, 'users', currentUser.uid), {
-            ...formData,
+            ...formattedData,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           });

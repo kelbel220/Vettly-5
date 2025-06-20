@@ -26,10 +26,12 @@ import { db } from '../firebase-init';
 import { 
   WeeklyTip, 
   WeeklyTipStatus, 
+  WeeklyTipCategory,
   UserTipView, 
   createWeeklyTip,
   formatTipForDisplay
 } from '../models/weeklyTip';
+import { generateWeeklyTip, ArticleSource } from './openaiTipGenerator';
 
 // Collection names
 const TIPS_COLLECTION = 'weeklyTips';
@@ -56,6 +58,22 @@ export async function createTip(tipData: Partial<WeeklyTip>): Promise<WeeklyTip>
     ...newTip,
     id: docRef.id
   };
+}
+
+/**
+ * Generates a new weekly tip using OpenAI and saves it to Firestore
+ * @param category Optional category for the tip
+ * @param articleSource Optional article to use as source material
+ */
+export async function generateAndCreateTip(
+  category?: WeeklyTipCategory,
+  articleSource?: ArticleSource
+): Promise<WeeklyTip> {
+  // Generate the tip using OpenAI
+  const generatedTip = await generateWeeklyTip(category, articleSource);
+  
+  // Save the generated tip to Firestore
+  return createTip(generatedTip);
 }
 
 /**

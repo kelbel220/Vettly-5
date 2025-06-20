@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import './calendar.css';
 import { useCalendarEvents, CalendarEvent as FirebaseEvent } from '@/hooks/useCalendarEvents';
 import { useAuth } from '@/context/AuthContext';
+import { EventModal } from './EventModal';
+import { EventCard } from './EventCard';
 
 // UI Event interface
 interface Event {
@@ -27,7 +30,12 @@ interface Member {
   avatar?: string;
 }
 
-export const EventCalendar: React.FC = () => {
+interface EventCalendarProps {
+  initialDate?: Date;
+  isFullPage?: boolean;
+}
+
+export const EventCalendar: React.FC<EventCalendarProps> = ({ initialDate, isFullPage = false }) => {
   // Get current date and auth
   const today = new Date();
   const currentYear = today.getFullYear();
@@ -35,7 +43,7 @@ export const EventCalendar: React.FC = () => {
   const currentDay = today.getDate();
   const auth = useAuth();
   
-  // Use our calendar events hook
+  // Use our calendar events hook with force refresh in dashboard context
   const { 
     events: firebaseEvents, 
     loading: firebaseLoading, 
@@ -43,8 +51,18 @@ export const EventCalendar: React.FC = () => {
     addEvent: addFirebaseEvent,
     updateEvent: updateFirebaseEvent,
     deleteEvent: deleteFirebaseEvent,
-    updateDateRequestStatus
+    updateDateRequestStatus,
+    loadEvents
   } = useCalendarEvents();
+  
+  // Force refresh events when component mounts, especially in dashboard context
+  useEffect(() => {
+    console.log('EventCalendar mounted, isFullPage:', isFullPage);
+    if (auth?.currentUser) {
+      console.log('Forcing refresh of calendar events');
+      loadEvents(true);
+    }
+  }, []);
   
   // State for modal visibility and form data
   const [showModal, setShowModal] = useState(false);
@@ -58,113 +76,104 @@ export const EventCalendar: React.FC = () => {
     location: '',
   });
   
-  // Sample members for date requests
-  const [members, setMembers] = useState<Member[]>([
-    { id: '1', name: 'Sarah Johnson', avatar: 'https://randomuser.me/api/portraits/women/44.jpg' },
-    { id: '2', name: 'Michael Chen', avatar: 'https://randomuser.me/api/portraits/men/32.jpg' },
-    { id: '3', name: 'Emma Wilson', avatar: 'https://randomuser.me/api/portraits/women/63.jpg' },
-    { id: '4', name: 'Alex Rodriguez', avatar: 'https://randomuser.me/api/portraits/men/91.jpg' },
-    { id: '5', name: 'Jordan Taylor', avatar: 'https://randomuser.me/api/portraits/women/21.jpg' },
-  ]);
+  // Empty members array instead of sample members
+  const [members, setMembers] = useState<Member[]>([]);
   
   // Local events state
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   
-  // Sample events for fallback
-  const getSampleEvents = () => [
-    {
-      id: '1',
-      title: 'Coffee Date',
-      start: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay + 3).padStart(2, '0')}T10:00:00`,
-      end: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay + 3).padStart(2, '0')}T11:30:00`,
-      backgroundColor: '#5B3CDD',
-      borderColor: '#5B3CDD',
-      with: 'Sarah Johnson',
-      location: 'Brew & Bean Café',
-    },
-    {
-      id: '2',
-      title: 'Dinner Date',
-      start: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay + 6).padStart(2, '0')}T19:00:00`,
-      end: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay + 6).padStart(2, '0')}T21:00:00`,
-      backgroundColor: '#34D8F1',
-      borderColor: '#34D8F1',
-      with: 'Michael Chen',
-      location: 'Bella Italia Restaurant',
-    },
-    {
-      id: '3',
-      title: 'Movie Night',
-      start: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay + 10).padStart(2, '0')}T18:30:00`,
-      end: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay + 10).padStart(2, '0')}T21:00:00`,
-      backgroundColor: '#7C3AED',
-      borderColor: '#7C3AED',
-      with: 'Emma Wilson',
-      location: 'Cineplex Downtown',
-    },
-    {
-      id: '4',
-      title: 'Beach Day',
-      start: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay + 14).padStart(2, '0')}T09:00:00`,
-      end: `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(currentDay + 14).padStart(2, '0')}T17:00:00`,
-      backgroundColor: '#0EA5E9',
-      borderColor: '#0EA5E9',
-      allDay: true,
-      with: 'Alex & Jordan',
-      location: 'Bondi Beach',
-    }
-  ];
+  // Return empty array instead of sample events
+  const getSampleEvents = () => [];
   
   // Convert Firebase events to UI events
   useEffect(() => {
     // Set error state if Firebase has an error
     if (firebaseError) {
+      console.error('Firebase error in EventCalendar:', firebaseError);
       setError(firebaseError);
       setLoading(false);
       return;
     }
     
+    console.log('Processing Firebase events in EventCalendar:', firebaseEvents.length);
+    
     // If we have Firebase events, format them for the UI
-    if (firebaseEvents.length > 0) {
-      const formattedEvents: Event[] = firebaseEvents.map(event => ({
-        id: event.id || `temp-${Date.now()}`,
-        title: event.title,
-        start: event.start,
-        end: event.end || event.start,
-        allDay: event.allDay || false,
-        backgroundColor: event.isRequest ? '#34D8F1' : '#5B3CDD',
-        borderColor: event.isRequest ? '#34D8F1' : '#5B3CDD',
-        textColor: event.textColor || '#FFFFFF',
-        with: event.with || '',
-        location: event.location || '',
-        userId: event.userId,
-        isRequest: event.isRequest || false,
-        requestStatus: event.requestStatus || 'pending',
-        requestToUserId: event.requestToUserId
-      }));
+    if (firebaseEvents && firebaseEvents.length > 0) {
+      const formattedEvents: Event[] = firebaseEvents.map(event => {
+        // Ensure we have valid date strings
+        let startDate = event.start;
+        let endDate = event.end || event.start;
+        
+        // If dates are Firestore timestamps, convert them
+        if (typeof startDate === 'object' && startDate !== null && 'toDate' in startDate) {
+          try {
+            // @ts-ignore - Handle Firestore Timestamp objects
+            startDate = startDate.toDate().toISOString();
+          } catch (e) {
+            console.error('Error converting start timestamp:', e);
+            startDate = new Date().toISOString();
+          }
+        }
+        
+        if (typeof endDate === 'object' && endDate !== null && 'toDate' in endDate) {
+          try {
+            // @ts-ignore - Handle Firestore Timestamp objects
+            endDate = endDate.toDate().toISOString();
+          } catch (e) {
+            console.error('Error converting end timestamp:', e);
+            endDate = startDate; // Fall back to start date
+          }
+        }
+        
+        return {
+          id: event.id || `temp-${Date.now()}`,
+          title: event.title || 'Untitled Event',
+          start: startDate,
+          end: endDate,
+          allDay: event.allDay || false,
+          backgroundColor: event.isRequest ? '#34D8F1' : '#5B3CDD',
+          borderColor: event.isRequest ? '#34D8F1' : '#5B3CDD',
+          textColor: event.textColor || '#FFFFFF',
+          with: event.with || '',
+          location: event.location || '',
+          userId: event.userId,
+          isRequest: event.isRequest || false,
+          requestStatus: event.requestStatus || 'pending',
+          requestToUserId: event.requestToUserId
+        };
+      });
       
+      console.log('Formatted events for UI:', formattedEvents.length);
       setEvents(formattedEvents);
       setLoading(false);
     } else {
-      // If no Firebase events or not authenticated, use sample events
-      setEvents(getSampleEvents());
+      // If no Firebase events, set empty array
+      console.log('No Firebase events found, setting empty events array');
+      setEvents([]);
       setLoading(false);
     }
   }, [firebaseEvents, firebaseLoading, firebaseError, auth?.currentUser]);
   
-  // Initialize the calendar with sample events if not authenticated
+  // Debug effect to log events when they change
+  useEffect(() => {
+    console.log('UI events updated in EventCalendar, count:', events.length);
+  }, [events]);
+  
+  // Initialize the calendar with empty events if not authenticated
   useEffect(() => {
     if (!auth?.currentUser && events.length === 0) {
-      setEvents(getSampleEvents());
+      setEvents([]);
       setLoading(false);
     }
   }, []);
 
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [viewMode, setViewMode] = useState<'month' | 'day'>('month');
+  // Set initial states
+  const [currentDate, setCurrentDate] = useState(initialDate || new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(initialDate || null);
+  const [viewMode, setViewMode] = useState<'month' | 'day'>(initialDate ? 'day' : 'month');
   
   // Get days in month for the calendar
   const getDaysInMonth = (year: number, month: number) => {
@@ -226,10 +235,20 @@ export const EventCalendar: React.FC = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
   };
 
+  // Router for navigation
+  const router = useRouter();
+
   // Handle date click
   const handleDateClick = (date: Date) => {
-    setSelectedDate(date);
-    setViewMode('day');
+    if (!isFullPage) {
+      // Navigate to calendar page with the selected date
+      const formattedDate = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+      router.push(`/calendar?date=${formattedDate}`);
+    } else {
+      // We're already on the calendar page, just update the view
+      setSelectedDate(date);
+      setViewMode('day');
+    }
   };
   
   // Handle back to month view
@@ -275,76 +294,6 @@ export const EventCalendar: React.FC = () => {
       [name]: value,
     });
   };
-  
-  // Handle form submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      setLoading(true);
-      
-      // Check if user is authenticated
-      if (auth?.currentUser) {
-        // Create Firebase event data
-        const eventData: Omit<FirebaseEvent, 'id'> = {
-          title: formData.title,
-          start: `${formData.date}T${formData.startTime}:00`,
-          end: `${formData.date}T${formData.endTime}:00`,
-          with: formData.with,
-          location: formData.location,
-          userId: auth.currentUser.uid,
-          isRequest: modalType === 'request',
-        };
-        
-        // If this is a date request, add recipient info
-        if (modalType === 'request') {
-          const selectedMember = members.find(m => m.name === formData.with);
-          if (selectedMember) {
-            eventData.requestToUserId = selectedMember.id;
-            eventData.requestStatus = 'pending';
-          }
-        }
-        
-        // Save to Firebase
-        await addFirebaseEvent(eventData);
-        // Note: We don't need to update local state as the useEffect will handle that
-      } else {
-        // Not authenticated, create local event only
-        const newEvent: Event = {
-          id: `local-${Date.now()}`,
-          title: formData.title,
-          start: `${formData.date}T${formData.startTime}:00`,
-          end: `${formData.date}T${formData.endTime}:00`,
-          backgroundColor: modalType === 'add' ? '#5B3CDD' : '#34D8F1',
-          borderColor: modalType === 'add' ? '#5B3CDD' : '#34D8F1',
-          with: formData.with,
-          location: formData.location,
-          isRequest: modalType === 'request',
-          requestStatus: modalType === 'request' ? 'pending' : undefined,
-        };
-        
-        // Add to local state
-        setEvents([...events, newEvent]);
-      }
-      
-      // Reset form
-      setShowModal(false);
-      setFormData({
-        title: '',
-        date: '',
-        startTime: '',
-        endTime: '',
-        with: '',
-        location: '',
-      });
-      setError(null);
-    } catch (err) {
-      console.error('Error creating event:', err);
-      setError('Failed to create event. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
   // Create array of hours for day view
   const hours = Array.from({ length: 24 }, (_, i) => i);
   
@@ -358,31 +307,30 @@ export const EventCalendar: React.FC = () => {
     return (
       <div className="p-6">
         {/* Day view header */}
-        <div className="flex justify-between items-center bg-[#5B3CDD] text-white p-4 rounded-t-lg">
-          <div className="flex items-center">
+        <div className="flex flex-col bg-[#5B3CDD] text-white p-4 rounded-t-lg">
+          <div className="flex items-center mb-3">
             <button 
               onClick={handleBackToMonth}
-              className="p-2 mr-2 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
+              className="p-2 mr-3 bg-white/10 rounded-full hover:bg-white/20 transition-colors"
             >
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
-            <h3 className="text-white text-lg font-medium">
+            <h3 className="text-white text-xl font-medium">
               {selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
             </h3>
-            {renderAuthStatus()}
           </div>
-          <div className="flex space-x-2">
+          <div className="flex space-x-4">
             <button 
               onClick={openAddEventModal}
-              className="px-3 py-1 bg-[#5B3CDD] text-white text-sm rounded-full hover:bg-[#4930B1] transition-colors"
+              className="w-32 px-5 py-2 bg-white/10 text-white text-sm font-medium rounded-lg hover:bg-white/20 transition-colors"
             >
               Add Event
             </button>
             <button 
               onClick={openRequestDateModal}
-              className="px-3 py-1 bg-[#34D8F1] text-white text-sm rounded-full hover:bg-[#28AEC2] transition-colors"
+              className="w-32 px-5 py-2 bg-[#34D8F1] text-white text-sm font-medium rounded-lg hover:bg-[#28AEC2] transition-colors"
             >
               Request Date
             </button>
@@ -408,7 +356,7 @@ export const EventCalendar: React.FC = () => {
                     .map((event) => (
                       <div
                         key={event.id}
-                        className="absolute top-0 left-0 right-4 p-2 rounded-md mb-1"
+                        className="absolute top-0 left-0 right-4 p-2 rounded-md mb-1 cursor-pointer hover:opacity-90 transition-opacity"
                         style={{
                           backgroundColor: event.backgroundColor || '#5B3CDD',
                           borderLeft: `4px solid ${event.borderColor || '#5B3CDD'}`,
@@ -416,6 +364,7 @@ export const EventCalendar: React.FC = () => {
                           minHeight: '40px',
                           zIndex: 10,
                         }}
+                        onClick={() => setSelectedEvent(event)}
                       >
                         <div className="font-medium">{event.title}</div>
                         <div className="text-xs opacity-80">
@@ -527,6 +476,87 @@ export const EventCalendar: React.FC = () => {
   const renderEventModal = () => {
     if (!showModal) return null;
 
+    // Create a separate handler for form submission
+    const submitForm = (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      // Check authentication first
+      if (!auth?.currentUser) {
+        setError('You must be logged in to add events. Please sign in and try again.');
+        return;
+      }
+      
+      // Hide modal immediately
+      setShowModal(false);
+      
+      // Process the form data asynchronously
+      setTimeout(() => {
+        processFormSubmission();
+      }, 100);
+    };
+    
+    // Process form submission without blocking UI
+    const processFormSubmission = async () => {
+      try {
+        setLoading(true);
+        
+        // Verify authentication status
+        if (!auth?.currentUser) {
+          console.log('User not authenticated, cannot add event to Firebase');
+          setError('You must be logged in to add events. Please sign in and try again.');
+          setLoading(false);
+          return;
+        }
+        
+        // Ensure we have a valid user ID
+        if (!auth.currentUser.uid) {
+          console.error('User authenticated but missing UID');
+          setError('Authentication error. Please sign out and sign in again.');
+          setLoading(false);
+          return;
+        }
+        
+        // Create Firebase event data
+        const eventData: Omit<FirebaseEvent, 'id'> = {
+          title: formData.title,
+          start: `${formData.date}T${formData.startTime}:00`,
+          end: `${formData.date}T${formData.endTime}:00`,
+          with: formData.with,
+          location: formData.location,
+          userId: auth.currentUser.uid,
+          isRequest: modalType === 'request',
+        };
+        
+        // If this is a date request, add recipient info
+        if (modalType === 'request') {
+          const selectedMember = members.find(m => m.name === formData.with);
+          if (selectedMember) {
+            eventData.requestToUserId = selectedMember.id;
+            eventData.requestStatus = 'pending';
+          }
+        }
+        
+        // Save to Firebase
+        await addFirebaseEvent(eventData);
+        
+        // Reset form
+        setFormData({
+          title: '',
+          date: '',
+          startTime: '',
+          endTime: '',
+          with: '',
+          location: '',
+        });
+        setError(null);
+      } catch (err) {
+        console.error('Error creating event:', err);
+        setError('Failed to create event. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     return (
       <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
         <div className="bg-[#1E1E2E] rounded-xl p-6 w-full max-w-md">
@@ -537,6 +567,7 @@ export const EventCalendar: React.FC = () => {
             <button
               onClick={() => setShowModal(false)}
               className="p-1 rounded-full hover:bg-white/10"
+              type="button"
             >
               <svg
                 className="w-6 h-6 text-white/70"
@@ -554,7 +585,7 @@ export const EventCalendar: React.FC = () => {
             </button>
           </div>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={submitForm}>
             <div className="mb-4">
               <label
                 className="block text-white/70 text-sm mb-1"
@@ -568,7 +599,7 @@ export const EventCalendar: React.FC = () => {
                 name="title"
                 value={formData.title}
                 onChange={handleInputChange}
-                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-[#5B3CDD]"
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
                 placeholder={
                   modalType === 'add' ? 'Enter event title' : 'Coffee Date, Dinner, etc.'
                 }
@@ -589,7 +620,7 @@ export const EventCalendar: React.FC = () => {
                 name="date"
                 value={formData.date}
                 onChange={handleInputChange}
-                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-[#5B3CDD]"
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
                 required
               />
             </div>
@@ -608,7 +639,7 @@ export const EventCalendar: React.FC = () => {
                   name="startTime"
                   value={formData.startTime}
                   onChange={handleInputChange}
-                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-[#5B3CDD]"
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
                   required
                 />
               </div>
@@ -625,7 +656,7 @@ export const EventCalendar: React.FC = () => {
                   name="endTime"
                   value={formData.endTime}
                   onChange={handleInputChange}
-                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-[#5B3CDD]"
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
                   required
                 />
               </div>
@@ -636,7 +667,7 @@ export const EventCalendar: React.FC = () => {
                 className="block text-white/70 text-sm mb-1"
                 htmlFor="with"
               >
-                {modalType === 'add' ? 'With' : 'Request Date With'}
+                With
               </label>
               {modalType === 'add' ? (
                 <input
@@ -645,24 +676,22 @@ export const EventCalendar: React.FC = () => {
                   name="with"
                   value={formData.with}
                   onChange={handleInputChange}
-                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-[#5B3CDD]"
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
                   placeholder="Enter name"
                 />
               ) : (
                 <select
-                  id="with"
                   name="with"
                   value={formData.with}
                   onChange={handleInputChange}
-                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-[#5B3CDD]"
+                  className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
                   required
-                  style={{ color: '#5B3CDD' }}
                 >
-                  <option value="" style={{ backgroundColor: '#1E1E2E', color: '#5B3CDD' }}>
+                  <option value="" style={{ backgroundColor: '#1E1E2E', color: 'white' }}>
                     Select a member
                   </option>
                   {members.map((member) => (
-                    <option key={member.id} value={member.name} style={{ backgroundColor: '#1E1E2E', color: '#5B3CDD' }}>
+                    <option key={member.id} value={member.name} style={{ backgroundColor: '#1E1E2E', color: 'white' }}>
                       {member.name}
                     </option>
                   ))}
@@ -683,7 +712,7 @@ export const EventCalendar: React.FC = () => {
                 name="location"
                 value={formData.location}
                 onChange={handleInputChange}
-                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-[#5B3CDD]"
+                className="w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white"
                 placeholder="Enter location"
               />
             </div>
@@ -799,6 +828,8 @@ export const EventCalendar: React.FC = () => {
           </div>
         </div>
 
+        {/* Placeholder for spacing - removed duplicate upcoming events section */}
+
         {/* Selected date events */}
         {selectedDate && (
           <div className="mt-4">
@@ -810,8 +841,9 @@ export const EventCalendar: React.FC = () => {
                 getEventsForDate(selectedDate).map((event) => (
                   <div
                     key={event.id}
-                    className="p-3 rounded-lg"
+                    className="p-3 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                     style={{ backgroundColor: event.backgroundColor || '#5B3CDD' }}
+                    onClick={() => setSelectedEvent(event)}
                   >
                     <p className="text-white font-medium">{event.title}</p>
                     <p className="text-white/70 text-sm">
@@ -869,8 +901,11 @@ export const EventCalendar: React.FC = () => {
                   </div>
                 ))
               ) : (
-                <div className="text-white/50 text-sm p-3 bg-white/5 rounded-lg text-center">
-                  No events for this date
+                <div className="bg-white/10 rounded-xl overflow-hidden">
+                  <div className="p-6 flex flex-col items-center text-center">
+                    <h4 className="text-xl font-normal text-white mb-2">No Events</h4>
+                    <p className="text-white text-base mb-4">Events will appear here</p>
+                  </div>
                 </div>
               )}
             </div>
@@ -883,68 +918,21 @@ export const EventCalendar: React.FC = () => {
             <h4 className="text-white text-sm font-medium mb-2">Upcoming Events</h4>
             <div className="space-y-2">
               {events
+                // Remove duplicate events by checking for unique IDs
+                .filter((event, index, self) => 
+                  index === self.findIndex((e) => e.id === event.id)
+                )
+                // Only show future events
+                .filter(event => new Date(event.start) >= new Date())
+                // Sort by date (closest first)
                 .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-                .slice(0, 3)
+                // Show only 3 events on dashboard, all on full page
+                .slice(0, isFullPage ? undefined : 3)
                 .map((event) => (
-                  <div
-                    key={event.id}
-                    className="p-3 rounded-lg"
-                    style={{ backgroundColor: event.backgroundColor || '#5B3CDD' }}
-                  >
-                    <p className="text-white font-medium">{event.title}</p>
-                    <p className="text-white/70 text-sm">
-                      {new Date(event.start).toLocaleDateString('en-US', {
-                        month: 'short',
-                        day: 'numeric',
-                      })},{' '}
-                      {new Date(event.start).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                    {event.with && (
-                      <p className="text-white/80 text-sm flex items-center mt-1">
-                        <svg
-                          className="w-3 h-3 mr-1"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                          />
-                        </svg>
-                        {event.with}
-                      </p>
-                    )}
-                    {event.location && (
-                      <p className="text-white/80 text-sm flex items-center mt-1">
-                        <svg
-                          className="w-3 h-3 mr-1"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                          />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                          />
-                        </svg>
-                        {event.location}
-                      </p>
-                    )}
-                  </div>
+                  <EventCard 
+                    key={event.id} 
+                    event={event} 
+                  />
                 ))}
             </div>
           </div>
@@ -952,21 +940,11 @@ export const EventCalendar: React.FC = () => {
 
         {/* No events state */}
         {!selectedDate && events.length === 0 && (
-          <div className="mt-4 flex flex-col items-center text-center">
-            <svg
-              className="w-12 h-12 text-white/30 mb-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="1"
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            <p className="text-white/50">No upcoming events</p>
+          <div className="mt-4 bg-white/10 rounded-xl overflow-hidden">
+            <div className="p-6 flex flex-col items-center text-center">
+              <h4 className="text-xl font-normal text-white mb-2">No Events</h4>
+              <p className="text-white text-base mb-4">Events will appear here</p>
+            </div>
           </div>
         )}
       </div>
@@ -1014,6 +992,14 @@ export const EventCalendar: React.FC = () => {
         </div>
       )}
       {renderEventModal()}
+      
+      {/* Event Detail Modal */}
+      {selectedEvent && (
+        <EventModal 
+          event={selectedEvent} 
+          onClose={() => setSelectedEvent(null)} 
+        />
+      )}
     </div>
   );
 };

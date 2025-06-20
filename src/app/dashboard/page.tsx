@@ -13,7 +13,7 @@ import { useAuth, AuthContextType } from '@/context/AuthContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase-init';
 import { useRouter } from 'next/navigation';
-import { Menu, Transition } from '@headlessui/react';
+import { Menu, Transition, Dialog } from '@headlessui/react';
 import { Fragment } from 'react';
 import Link from 'next/link';
 import { EventCalendar } from '@/components/calendar/EventCalendar';
@@ -31,6 +31,8 @@ interface UserData {
   firstName: string;
   lastName: string;
   profilePhotoUrl: string;
+  questionnaireCompleted?: boolean;
+  completedSections?: Record<string, boolean>;
 }
 
 export default function Dashboard() {
@@ -40,6 +42,7 @@ export default function Dashboard() {
   const [userDataState, setUserData] = useState<UserData | null>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [profileImage, setProfileImage] = useState('/placeholder-profile.jpg');
+  const [showQuestionnairePopup, setShowQuestionnairePopup] = useState(false);
   
   // Use the weekly tip hook
   const { 
@@ -83,6 +86,11 @@ export default function Dashboard() {
             const data = userSnap.data() as UserData;
             console.log('User data from Firestore:', data);
             setUserData(data);
+            
+            // Check if questionnaire is not completed and show popup
+            if (data.questionnaireCompleted === false || data.questionnaireCompleted === undefined) {
+              setShowQuestionnairePopup(true);
+            }
             
             // Try to get profile photo URL from user document first, then fall back to auth user photoURL
             if (data.profilePhotoUrl) {
@@ -158,6 +166,15 @@ export default function Dashboard() {
   const handleProfileClick = () => {
     fileInputRef.current?.click();
   };
+  
+  const startQuestionnaire = () => {
+    setShowQuestionnairePopup(false);
+    router.push('/questionnaire');
+  };
+
+  const closeQuestionnairePopup = () => {
+    setShowQuestionnairePopup(false);
+  };
 
   if (isLoading) {
     return (
@@ -214,6 +231,44 @@ export default function Dashboard() {
           <OrbField />
         </div>
       </div>
+      
+      {/* Questionnaire Popup */}
+      <Dialog
+        open={showQuestionnairePopup}
+        onClose={closeQuestionnairePopup}
+        className="relative z-50"
+      >
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" aria-hidden="true" />
+        
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <Dialog.Panel className="mx-auto max-w-md rounded-2xl bg-white p-8 shadow-xl">
+            <Dialog.Title className={`${playfair.className} text-2xl font-semibold text-gray-900 mb-4`}>
+              Complete Your Questionnaire
+            </Dialog.Title>
+            
+            <div className="mb-6">
+              <p className="text-gray-600">
+                Help us understand your preferences and find your perfect match by completing a quick questionnaire.
+              </p>
+            </div>
+            
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={closeQuestionnairePopup}
+                className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors"
+              >
+                Later
+              </button>
+              <button
+                onClick={startQuestionnaire}
+                className="px-6 py-2 bg-[#3B00CC] text-white rounded-lg hover:bg-[#3B00CC]/90 transition-colors"
+              >
+                Start Now
+              </button>
+            </div>
+          </Dialog.Panel>
+        </div>
+      </Dialog>
       
       {/* Main Content Area */}
       <main className="flex-1 relative z-10 overflow-hidden flex flex-col pb-[80px] lg:pb-0">
@@ -290,13 +345,15 @@ export default function Dashboard() {
                       <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6">
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-xl text-white">Your Progress</h3>
-                          <span className="text-[#3B00CC] text-sm">3 of 6 Steps Complete</span>
+                          <span className="text-[#3B00CC] text-sm">
+                            {userDataState?.questionnaireCompleted ? '3' : '2'} of 6 Steps Complete
+                          </span>
                         </div>
                         {/* Progress Bar */}
                         <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
                           <div 
                             className="absolute left-0 top-0 h-full !bg-gradient-to-r !from-[#73FFF6] !to-[#3B00CC]"
-                            style={{ width: '50%' }}
+                            style={{ width: userDataState?.questionnaireCompleted ? '50%' : '33%' }}
                           />
                         </div>
                       </div>
@@ -360,12 +417,6 @@ export default function Dashboard() {
                             <div className="text-left">
                               <div className="flex items-center gap-2">
                                 <h4 className="text-lg text-white leading-tight group-hover:text-[#3B00CC] transition-colors duration-300">Profile Created</h4>
-                                {/* Help Icon */}
-                                <button className="group-hover:opacity-100 opacity-0 transition-opacity" title="Your basic profile information helps us understand who you are">
-                                  <svg className="w-4 h-4 text-white/60 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
-                                  </svg>
-                                </button>
                               </div>
                               <p className="text-white/70 text-sm mt-0.5">Basic information added</p>
                             </div>
@@ -385,12 +436,7 @@ export default function Dashboard() {
                             <div className="text-left">
                               <div className="flex items-center gap-2">
                                 <h4 className="text-lg text-white leading-tight group-hover:text-[#3B00CC] transition-colors duration-300">Photos Uploaded</h4>
-                                {/* Help Icon */}
-                                <button className="group-hover:opacity-100 opacity-0 transition-opacity" title="Photos increase your match rate by 80%">
-                                  <svg className="w-4 h-4 text-white/60 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
-                                  </svg>
-                                </button>
+
                               </div>
                               <p className="text-white/70 text-sm mt-0.5">Profile photos added</p>
                             </div>
@@ -402,24 +448,27 @@ export default function Dashboard() {
 
                           {/* Questionnaire */}
                           <div onClick={() => router.push('/questionnaire')} className="group relative grid grid-cols-[2rem_1fr_auto] items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300 cursor-pointer">
-                            <div className="w-6 h-6 rounded-full bg-[#3B00CC] flex items-center justify-center mt-1">
-                              <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
-                              </svg>
+                            <div className={`w-6 h-6 rounded-full ${userDataState?.questionnaireCompleted ? 'bg-[#3B00CC]' : 'bg-white/10'} flex items-center justify-center mt-1`}>
+                              {userDataState?.questionnaireCompleted ? (
+                                <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+                                </svg>
+                              ) : (
+                                <div className="w-2 h-2 rounded-full bg-white"></div>
+                              )}
                             </div>
                             <div className="text-left">
                               <div className="flex items-center gap-2">
                                 <h4 className="text-lg text-white leading-tight group-hover:text-[#3B00CC] transition-colors duration-300">Questionnaire</h4>
-                                {/* Help Icon */}
-                                <button className="group-hover:opacity-100 opacity-0 transition-opacity" title="Help us understand your preferences (Est. 5 mins)">
-                                  <svg className="w-4 h-4 text-white/60 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
-                                  </svg>
-                                </button>
+
                               </div>
-                              <p className="text-white/70 text-sm mt-0.5">All questions answered</p>
+                              <p className="text-white/70 text-sm mt-0.5">
+                                {userDataState?.questionnaireCompleted ? 'All questions answered' : 'Complete your questionnaire'}
+                              </p>
                             </div>
-                            <div className="text-white text-sm mt-1 font-medium">Done</div>
+                            <div className="text-white text-sm mt-1 font-medium">
+                              {userDataState?.questionnaireCompleted ? 'Done' : 'To Do'}
+                            </div>
                           </div>
 
                           {/* Connecting Line */}
@@ -433,12 +482,7 @@ export default function Dashboard() {
                             <div className="text-left">
                               <div className="flex items-center gap-2">
                                 <h4 className="text-lg text-white leading-tight group-hover:text-white/80 transition-colors duration-300">Matching</h4>
-                                {/* Help Icon */}
-                                <button className="group-hover:opacity-100 opacity-0 transition-opacity" title="Our AI is finding your perfect match">
-                                  <svg className="w-4 h-4 text-white/60 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
-                                  </svg>
-                                </button>
+
                               </div>
                               <p className="text-white/70 text-sm mt-0.5">Finding your perfect match</p>
                             </div>
@@ -456,12 +500,7 @@ export default function Dashboard() {
                             <div className="text-left">
                               <div className="flex items-center gap-2">
                                 <h4 className="text-lg text-white leading-tight group-hover:text-white/80 transition-colors duration-300">Verification</h4>
-                                {/* Help Icon */}
-                                <button className="group-hover:opacity-100 opacity-0 transition-opacity" title="Verify your identity to ensure safety and trust">
-                                  <svg className="w-4 h-4 text-white/60 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
-                                  </svg>
-                                </button>
+
                               </div>
                               <p className="text-white/70 text-sm mt-0.5">Identity verification process</p>
                             </div>
@@ -478,15 +517,28 @@ export default function Dashboard() {
                             </div>
                             <div className="text-left">
                               <div className="flex items-center gap-2">
-                                <h4 className="text-lg text-white leading-tight group-hover:text-white/80 transition-colors duration-300">First Connection</h4>
-                                {/* Help Icon */}
-                                <button className="group-hover:opacity-100 opacity-0 transition-opacity" title="Get ready to meet your match!">
-                                  <svg className="w-4 h-4 text-white/60 hover:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
-                                  </svg>
-                                </button>
+                                <h4 className="text-lg text-white leading-tight group-hover:text-white/80 transition-colors duration-300">First Match</h4>
+
                               </div>
                               <p className="text-white/70 text-sm mt-0.5">Start your journey</p>
+                            </div>
+                            <div className="text-white text-sm mt-1">Coming Soon</div>
+                          </div>
+
+                          {/* Connecting Line */}
+                          <div className="w-px h-8 bg-white/10 ml-3"></div>
+
+                          {/* Next Match */}
+                          <div className="group relative grid grid-cols-[2rem_1fr_auto] items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300">
+                            <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center mt-1">
+                              <div className="w-2 h-2 rounded-full bg-white/80"></div>
+                            </div>
+                            <div className="text-left">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-lg text-white leading-tight group-hover:text-white/80 transition-colors duration-300">Next Match</h4>
+
+                              </div>
+                              <p className="text-white/70 text-sm mt-0.5">Continue your journey</p>
                             </div>
                             <div className="text-white text-sm mt-1">Coming Soon</div>
                           </div>
@@ -547,18 +599,26 @@ export default function Dashboard() {
                             <div className="flex items-center gap-2">
                               <div className="p-2 bg-white/10 rounded-lg">
                                 <svg className="w-5 h-5" fill="none" stroke="white" strokeWidth="1.5" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0121 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                                 </svg>
                               </div>
                               <h3 className="text-xl text-white">Upcoming Events</h3>
                             </div>
-                            <div className="text-sm text-white px-2 py-1 bg-white/10 rounded-full">
-                              <Link href="/events" className="text-[#34D8F1]">View All</Link>
+                            <div className="flex space-x-2">
+                              <div className="text-sm text-white px-2 py-1 bg-white/10 rounded-full">
+                                <Link href="/events" className="text-[#34D8F1]">View All</Link>
+                              </div>
+                              <button 
+                                onClick={() => window.location.href = '/events'}
+                                className="text-sm text-white px-2 py-1 bg-white/10 rounded-full text-[#34D8F1]"
+                              >
+                                Events Page
+                              </button>
                             </div>
                           </div>
 
                           {/* Calendar Component */}
-                          <EventCalendar />
+                          <EventCalendar isFullPage={false} />
                         </div>
                       </div>
 
@@ -584,45 +644,118 @@ export default function Dashboard() {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 flex items-center justify-center py-2 px-4 bg-[#34D8F1]/95 backdrop-blur-xl border-t border-white/10">
-        <div className="flex gap-10">
-          {[
-            { id: 'dashboard', icon: (
-              <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-            )},
-            { id: 'messages', icon: (
-              <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
-              </svg>
-            )},
-            { id: 'matches', icon: (
-              <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-              </svg>
-            )},
-            { id: 'settings', icon: (
-              <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
-              </svg>
-            )}
-          ].map((item) => (
-            <button
-              key={item.id}
-              className={`p-2 rounded-lg transition-all ${
-                activeTab === item.id
-                  ? 'bg-white/25 text-white'
-                  : 'text-white hover:text-white hover:bg-white/20'
-              }`}
-              onClick={() => {
-                setActiveTab(item.id);
-                router.push(`/${item.id === 'dashboard' ? '' : item.id}`);
-              }}
-            >
-              {item.icon}
-            </button>
-          ))}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 flex items-center justify-center py-2 px-4 bg-[#34D8F1]/95 backdrop-blur-xl border-t border-white/10 z-50">
+        <div className="flex gap-6 justify-center w-full">
+          {/* Dashboard Button */}
+          <button
+            type="button"
+            className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+              activeTab === 'dashboard'
+                ? 'bg-white/25 text-white'
+                : 'text-white hover:text-white hover:bg-white/20'
+            }`}
+            onClick={() => {
+              setActiveTab('dashboard');
+              router.push('/');
+            }}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            <span className="text-xs mt-1 capitalize">Dashboard</span>
+          </button>
+          
+          {/* Profile Button */}
+          <button
+            type="button"
+            className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+              activeTab === 'profile'
+                ? 'bg-white/25 text-white'
+                : 'text-white hover:text-white hover:bg-white/20'
+            }`}
+            onClick={() => {
+              setActiveTab('profile');
+              router.push('/profile');
+            }}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
+            <span className="text-xs mt-1 capitalize">Profile</span>
+          </button>
+          
+          {/* Messages Button */}
+          <button
+            type="button"
+            className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+              activeTab === 'messages'
+                ? 'bg-white/25 text-white'
+                : 'text-white hover:text-white hover:bg-white/20'
+            }`}
+            onClick={() => {
+              setActiveTab('messages');
+              router.push('/messages');
+            }}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+            </svg>
+            <span className="text-xs mt-1 capitalize">Messages</span>
+          </button>
+          
+          {/* Matches Button */}
+          <button
+            type="button"
+            className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+              activeTab === 'matches'
+                ? 'bg-white/25 text-white'
+                : 'text-white hover:text-white hover:bg-white/20'
+            }`}
+            onClick={() => {
+              setActiveTab('matches');
+              router.push('/matches');
+            }}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+            </svg>
+            <span className="text-xs mt-1 capitalize">Matches</span>
+          </button>
+          
+          {/* Settings Button */}
+          <button
+            type="button"
+            className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+              activeTab === 'settings'
+                ? 'bg-white/25 text-white'
+                : 'text-white hover:text-white hover:bg-white/20'
+            }`}
+            onClick={() => {
+              setActiveTab('settings');
+              router.push('/settings');
+            }}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+            </svg>
+            <span className="text-xs mt-1 capitalize">Settings</span>
+          </button>
+          
+          {/* Logout Button */}
+          <button
+            type="button"
+            className="flex flex-col items-center p-2 rounded-lg transition-all text-white hover:text-white hover:bg-white/20"
+            onClick={() => {
+              auth.logout().then(() => {
+                router.push('/login');
+              });
+            }}
+          >
+            <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span className="text-xs mt-1 capitalize">Logout</span>
+          </button>
         </div>
       </div>
 
@@ -634,6 +767,11 @@ export default function Dashboard() {
               { id: 'dashboard', icon: (
                 <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+              )},
+              { id: 'profile', icon: (
+                <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                 </svg>
               )},
               { id: 'messages', icon: (
@@ -669,6 +807,21 @@ export default function Dashboard() {
               </button>
             ))}
           </nav>
+          
+          {/* Logout Button */}
+          <button
+            onClick={() => {
+              auth.logout().then(() => {
+                router.push('/login');
+              });
+            }}
+            className="mt-auto mb-6 flex flex-col items-center p-2 rounded-lg transition-all text-white hover:text-white hover:bg-white/20"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span className="text-xs mt-1">Logout</span>
+          </button>
         </div>
       </aside>
 
