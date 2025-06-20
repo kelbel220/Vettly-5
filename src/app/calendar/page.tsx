@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { EventCalendar } from '@/components/calendar/EventCalendar';
 import { useAuth } from '@/context/AuthContext';
+import { MobileNavigation } from '@/components/navigation/MobileNavigation';
 
 export default function CalendarPage() {
   const router = useRouter();
@@ -11,6 +12,7 @@ export default function CalendarPage() {
   const auth = useAuth();
   const user = auth.currentUser;
   const [authLoading, setAuthLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('calendar');
   
   // Track auth loading state
   useEffect(() => {
@@ -79,6 +81,9 @@ export default function CalendarPage() {
           <EventCalendar initialDate={selectedDate} isFullPage={true} />
         </div>
       </div>
+      
+      {/* Mobile Navigation Bar */}
+      <MobileNavigation activeTab={activeTab} />
     </div>
   );
 }

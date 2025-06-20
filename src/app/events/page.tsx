@@ -6,6 +6,7 @@ import { Playfair_Display } from 'next/font/google';
 import { useCalendarEvents } from '@/hooks/useCalendarEvents';
 import { useAuth } from '@/context/AuthContext';
 import { EventCard } from '@/components/calendar/EventCard';
+import { MobileNavigation } from '@/components/navigation/MobileNavigation';
 
 // Initialize the Playfair Display font
 const playfair = Playfair_Display({ subsets: ['latin'] });
@@ -14,6 +15,7 @@ export default function EventsPage() {
   const router = useRouter();
   const auth = useAuth();
   const [authLoading, setAuthLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('events');
   
   // Track auth loading state
   useEffect(() => {
@@ -187,6 +189,9 @@ export default function EventsPage() {
           )}
         </div>
       </div>
+      
+      {/* Mobile Navigation Bar */}
+      <MobileNavigation activeTab={activeTab} />
     </div>
   );
 }

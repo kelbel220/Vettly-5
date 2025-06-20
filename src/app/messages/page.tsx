@@ -7,9 +7,11 @@ import { collection, query, where, orderBy, getDocs, addDoc, onSnapshot, doc, ge
 import { db } from '@/lib/firebase-init';
 import Image from 'next/image';
 import { ArrowLeft, Send, User, Menu, Phone, Video, MoreVertical, Paperclip, Mic, Home, UserCircle } from 'lucide-react';
-import { Inter } from 'next/font/google';
+import { MobileNavigation } from '@/components/navigation/MobileNavigation';
+import { Inter, Playfair_Display } from 'next/font/google';
 
 const inter = Inter({ subsets: ['latin'] });
+const playfair = Playfair_Display({ subsets: ['latin'] });
 
 interface Message {
   id: string;
@@ -33,6 +35,7 @@ interface Contact {
 export default function Messages() {
   const router = useRouter();
   const { currentUser } = useAuth();
+  const [activeTab, setActiveTab] = useState('messages');
   
   // Initialize with empty arrays instead of dummy data
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -157,7 +160,7 @@ export default function Messages() {
                 </div>
               )}
               <div className="ml-3">
-                <h3 className="font-medium text-white" style={{fontFamily: inter.style.fontFamily}}>
+                <h3 className={`text-sm font-medium text-white ${playfair.className}`}>
                   {selectedContact.firstName} {selectedContact.lastName}
                 </h3>
                 <p className="text-xs text-white/70">Online now</p>
@@ -172,7 +175,7 @@ export default function Messages() {
             <button className="text-white" onClick={() => router.push('/dashboard')}>
               <ArrowLeft className="h-6 w-6" />
             </button>
-            <h2 className="text-[2.5rem] font-black tracking-wider uppercase text-white text-center">Message</h2>
+            <h2 className={`text-[2rem] font-bold tracking-wider uppercase text-white text-center ${playfair.className}`}>Message</h2>
             <button className="text-white">
               <MoreVertical className="h-5 w-5" />
             </button>
@@ -186,7 +189,7 @@ export default function Messages() {
               <button className="text-white hidden md:block mr-3" onClick={() => router.push('/dashboard')}>
                 <ArrowLeft className="h-6 w-6" />
               </button>
-              <h2 className="text-xl font-bold text-white hidden md:block" style={{fontFamily: inter.style.fontFamily}}>Message</h2>
+              <h2 className={`text-lg font-bold text-white hidden md:block ${playfair.className}`}>Message</h2>
             </div>
             
             {/* Search bar */}
@@ -389,22 +392,7 @@ export default function Messages() {
       </div>
       
       {/* Mobile Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-[#5A17E0] h-16 flex items-center justify-around md:hidden border-t border-white/10">
-        <button 
-          className="flex flex-col items-center justify-center text-white w-1/2"
-          onClick={() => router.push('/dashboard')}
-        >
-          <Home className="h-6 w-6 mb-1" />
-          <span className="text-xs">Home</span>
-        </button>
-        <button 
-          className="flex flex-col items-center justify-center text-white w-1/2"
-          onClick={() => router.push('/profile')}
-        >
-          <UserCircle className="h-6 w-6 mb-1" />
-          <span className="text-xs">Profile</span>
-        </button>
-      </div>
+      <MobileNavigation activeTab={activeTab} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { WineIcon } from './WineIcon';
 import { SmokingIcon } from './SmokingIcon';
 import { useRouter } from 'next/navigation';
+import { MobileNavigation } from '@/components/navigation/MobileNavigation';
 import Image from 'next/image';
 import { inter, playfair } from '@/app/fonts';
 import { OrbField } from '@/app/components/gradients/OrbField';
@@ -49,6 +50,7 @@ interface EditFormData extends Partial<UserProfile> {
 
 export default function Profile() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState('profile');
   const { currentUser } = useAuth();
   const [userData, setUserData] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -756,8 +758,22 @@ export default function Profile() {
         )}
         {/* Edit buttons removed from top for desktop */}
         
-        {/* Desktop logo at top center */}
-        <div className="hidden lg:flex lg:justify-center lg:mt-6 lg:mb-8">
+        {/* Desktop logo at top center with back arrow */}
+        <div className="hidden lg:flex lg:justify-center lg:mt-6 lg:mb-8 lg:relative">
+          {/* Back arrow for desktop */}
+          <div className="absolute left-8 top-1/2 -translate-y-1/2">
+            <button 
+              onClick={() => router.push('/dashboard')}
+              className="p-3.5 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-all flex items-center gap-3 shadow-md"
+              aria-label="Go back to dashboard"
+            >
+              <svg className="h-7 w-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              <span className="text-white text-base font-medium pr-1">Back</span>
+            </button>
+          </div>
+          
           <div className="flex flex-col items-center">
             <div className="w-40 h-12 relative">
               <Image 
@@ -772,19 +788,35 @@ export default function Profile() {
           </div>
         </div>
         
-        {/* Mobile only: Vettly logo */}
-        <div className="flex flex-col items-center justify-center mt-4 mb-6 lg:hidden">
-          <div className="w-32 h-10 relative">
-            <Image 
-              src="/vettly-logo.png" 
-              alt="Vettly Logo"
-              fill
-              className="object-contain"
-              unoptimized
-            />
+        {/* Mobile only: Back arrow and Vettly logo */}
+        <div className="flex flex-col mt-4 mb-6 lg:hidden">
+          {/* Back arrow button */}
+          <div className="absolute top-6 left-4 z-20">
+            <button 
+              onClick={() => router.push('/dashboard')}
+              className="p-3 rounded-full bg-white/20 backdrop-blur-sm hover:bg-white/30 transition-all shadow-md"
+              aria-label="Go back to dashboard"
+            >
+              <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
           </div>
-          <div className="w-full flex justify-center mt-1">
-            <Tagline />
+          
+          {/* Logo and tagline */}
+          <div className="flex flex-col items-center justify-center w-full">
+            <div className="w-32 h-10 relative">
+              <Image 
+                src="/vettly-logo.png" 
+                alt="Vettly Logo"
+                fill
+                className="object-contain"
+                unoptimized
+              />
+            </div>
+            <div className="w-full flex justify-center mt-1">
+              <Tagline />
+            </div>
           </div>
         </div>
         
@@ -1104,15 +1136,15 @@ export default function Profile() {
                   {/* Interests section with pill boxes */}
                   <div className="mt-8 lg:mt-0 mb-4">
                     <h2 className="text-2xl font-semibold text-white mb-4">Interests</h2>
-                    <div className="grid grid-cols-3 lg:grid-cols-2 gap-2 w-full">
+                    <div className="flex flex-wrap gap-2 w-full">
                       {userData.questionnaireAnswers?.lifestyle_hobbiesTypes && userData.questionnaireAnswers.lifestyle_hobbiesTypes.length > 0 ? (
                         userData.questionnaireAnswers.lifestyle_hobbiesTypes.map((interest: string, index: number) => (
-                          <div key={index} className="h-10 bg-white/90 text-[#3B00CC] rounded-full text-sm font-medium shadow-sm flex items-center justify-center">
+                          <div key={index} className="bg-white/90 text-[#3B00CC] rounded-full text-sm font-medium shadow-sm flex items-center justify-center px-4 py-2 whitespace-nowrap">
                             {interest}
                           </div>
                         ))
                       ) : (
-                        <div className="col-span-3 lg:col-span-2 text-white text-sm py-2">
+                        <div className="w-full text-white text-sm py-2">
                           No interests found in your questionnaire responses.
                         </div>
                       )}
@@ -1229,6 +1261,9 @@ export default function Profile() {
           ))}
         </div>
       </div>
+
+      {/* Mobile Navigation */}
+      <MobileNavigation activeTab={activeTab} />
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase-init';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Home, UserCircle, Bell, CreditCard, Shield, HelpCircle, LogOut } from 'lucide-react';
+import { MobileNavigation } from '@/components/navigation/MobileNavigation';
 
 interface PaymentCard {
   id: string;
@@ -58,6 +59,7 @@ export default function Settings() {
   const [showManagePayments, setShowManagePayments] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('');
   const [pauseDuration, setPauseDuration] = useState('1');
+  const [activeTab, setActiveTab] = useState('settings');
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -1169,6 +1171,9 @@ export default function Settings() {
           </div>
         </div>
       </main>
+      
+      {/* Mobile Navigation Bar */}
+      <MobileNavigation activeTab={activeTab} />
     </div>
   );
 }
