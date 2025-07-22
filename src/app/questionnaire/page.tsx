@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { inter, playfair } from '../fonts';
 import { useAuth, AuthContextType } from '@/context/AuthContext';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase-init';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -196,12 +196,14 @@ const standardizeQuestionId = (questionId: string, sectionId: string): string =>
     return questionId;
   }
   
-  // If the question ID ends with 'Partner', rename it to start with 'partner'
-  if (questionId.endsWith('Partner')) {
-    return 'partner' + questionId.charAt(0).toUpperCase() + questionId.slice(1, -7);
-  }
-  
+  // IMPORTANT: Based on the Firebase data, we're keeping the original ID format
+  // This ensures consistency between saving and retrieving data
   return questionId;
+};
+
+// Debug function to log question IDs and answers for troubleshooting
+const logQuestionData = (questionId: string, sectionId: string, answer: any) => {
+  console.log(`Question data - ID: ${sectionId}_${questionId}, Answer:`, answer);
 };
 
 export default function Questionnaire() {
@@ -209,14 +211,14 @@ export default function Questionnaire() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [showInstructions, setShowInstructions] = useState(true);
-  const [showCompletion, setShowCompletion] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, any>>({});
+  const [otherInputs, setOtherInputs] = useState<Record<string, string>>({});
+  const [completedSections, setCompletedSections] = useState<Record<string, boolean>>({});
   const [currentSection, setCurrentSection] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
-  const [otherInputs, setOtherInputs] = useState<{[key: string]: string}>({});
-  const [answers, setAnswers] = useState<Record<string, any>>({});
   const [progress, setProgress] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [completedSections, setCompletedSections] = useState<Record<string, boolean>>({});
+  const [showCompletion, setShowCompletion] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -277,15 +279,12 @@ export default function Questionnaire() {
   const currentQuestions = currentSectionData.questions.slice(startIdx, endIdx);
 
   const handleAnswer = (questionId: string, value: any) => {
-    // Standardize the question ID for partner preferences
-    const standardizedQuestionId = standardizeQuestionId(questionId, currentSectionData.id);
+    // We're now using the original question ID without standardization
+    const answerId = `${currentSectionData.id}_${questionId}`;
     
-    // Log the change if standardization occurred
-    if (standardizedQuestionId !== questionId) {
-      console.log(`Standardizing partner field: ${questionId} -> ${standardizedQuestionId}`);
-    }
-    
-    const answerId = `${currentSectionData.id}_${standardizedQuestionId}`;
+    // Debug logging
+    console.log(`Setting answer for: ${answerId}`, value);
+    console.log(`Current question type: ${currentSectionData.questions.find(q => q.id === questionId)?.type}`);
     
     // Clear other input if selecting a different option
     if (typeof value === 'string' && !value.includes('Other') && typeof answers[answerId] === 'string' && answers[answerId]?.includes('Other')) {
@@ -296,22 +295,28 @@ export default function Questionnaire() {
       });
     }
     
-    setAnswers(prev => ({
-      ...prev,
-      [answerId]: value
-    }));
+    setAnswers(prev => {
+      const newAnswers = {
+        ...prev,
+        [answerId]: value
+      };
+      console.log('Updated answers:', newAnswers);
+      return newAnswers;
+    });
+    
+    // Log the current state of this specific answer
+    setTimeout(() => {
+      console.log(`After update, answer for ${answerId}:`, answers[answerId]);
+    }, 100);
   };
   
   const handleMultiselect = (questionId: string, value: string) => {
-    // Standardize the question ID for partner preferences
-    const standardizedQuestionId = standardizeQuestionId(questionId, currentSectionData.id);
+    // Use the original question ID without standardization
+    const answerId = `${currentSectionData.id}_${questionId}`;
     
-    // Log the change if standardization occurred
-    if (standardizedQuestionId !== questionId) {
-      console.log(`Standardizing partner field: ${questionId} -> ${standardizedQuestionId}`);
-    }
+    // Debug logging
+    console.log(`Setting multiselect answer for: ${answerId}`, value);
     
-    const answerId = `${currentSectionData.id}_${standardizedQuestionId}`;
     const currentValues = answers[answerId] || [];
     
     let newValues;
@@ -319,35 +324,45 @@ export default function Questionnaire() {
       // Remove the value if already selected
       newValues = currentValues.filter((v: string) => v !== value);
     } else {
-      // Add the value if not already selected (up to 3)
-      if (currentValues.length < 3) {
+      // Add the value if not already selected (up to 5)
+      if (currentValues.length < 5) {
         newValues = [...currentValues, value];
       } else {
-        // Already have 3 selected, don't add more
+        // Already have 5 selected, don't add more
         return;
       }
     }
     
-    setAnswers(prev => ({
-      ...prev,
-      [answerId]: newValues
-    }));
+    setAnswers(prev => {
+      const newAnswers = {
+        ...prev,
+        [answerId]: newValues
+      };
+      console.log('Updated multiselect answers:', newAnswers);
+      return newAnswers;
+    });
+    
+    // Log the current state of this specific answer
+    setTimeout(() => {
+      console.log(`After update, multiselect answer for ${answerId}:`, answers[answerId]);
+    }, 100);
   };
   
   const handleOtherInput = (questionId: string, value: string) => {
-    // Standardize the question ID for partner preferences
-    const standardizedQuestionId = standardizeQuestionId(questionId, currentSectionData.id);
+    // Use original question ID without standardization
+    const answerId = `${currentSectionData.id}_${questionId}`;
     
-    // Log the change if standardization occurred
-    if (standardizedQuestionId !== questionId) {
-      console.log(`Standardizing partner field: ${questionId} -> ${standardizedQuestionId}`);
-    }
+    // Debug logging
+    console.log(`Setting other input for: ${answerId}`, value);
     
-    const answerId = `${currentSectionData.id}_${standardizedQuestionId}`;
-    setOtherInputs(prev => ({
-      ...prev,
-      [answerId]: value
-    }));
+    setOtherInputs(prev => {
+      const newInputs = {
+        ...prev,
+        [answerId]: value
+      };
+      console.log('Updated other inputs:', newInputs);
+      return newInputs;
+    });
     
     // Update the main answer to include the other text
     const baseAnswer = typeof answers[answerId] === 'string' ? answers[answerId].split(' - ')[0] : answers[answerId];
@@ -357,24 +372,63 @@ export default function Questionnaire() {
     }));
   };
 
-  const handleNext = async () => {
-    // Save progress
-    await saveProgress();
+  const handleNextPage = async () => {
+    // If we're on the last page of the last section, mark as complete
+    const isLastPage = currentPage === totalPagesInSection - 1;
+    const isLastSection = currentSection === SECTIONS.length - 1;
     
-    // If there are more pages in this section
-    if (currentPage < totalPagesInSection - 1) {
-      setCurrentPage(currentPage + 1);
-    } 
-    // If there are more sections
-    else if (currentSection < SECTIONS.length - 1) {
-      setCurrentSection(currentSection + 1);
-      setCurrentPage(0);
-    } 
-    // If completed all sections
-    else {
-      // Final save and show completion page
-      await saveProgress(true);
-      setShowCompletion(true);
+    if (isLastPage && isLastSection) {
+      // We're completing the entire questionnaire
+      try {
+        setSaving(true);
+        
+        // Force set the questionnaire as completed
+        await forceCompleteQuestionnaire();
+        
+        // Show completion screen
+        setShowCompletion(true);
+        
+        // Redirect to dashboard after a short delay
+        setTimeout(() => {
+          router.push('/dashboard');
+        }, 2000);
+      } catch (error) {
+        console.error('Error completing questionnaire:', error);
+      } finally {
+        setSaving(false);
+      }
+    } else {
+      // Regular progress save
+      saveProgress();
+      
+      // If we're on the last page of the section, move to the next section
+      if (isLastPage) {
+        if (currentSection < SECTIONS.length - 1) {
+          setCurrentSection(currentSection + 1);
+          setCurrentPage(0);
+        }
+      } else {
+        // Move to the next page in the current section
+        setCurrentPage(currentPage + 1);
+      }
+    }
+  };
+  
+  const handlePrevPage = () => {
+    // Save progress
+    saveProgress();
+    
+    // If we're on the first page of the section, move to the previous section
+    if (currentPage === 0) {
+      if (currentSection > 0) {
+        setCurrentSection(currentSection - 1);
+        // Set to the last page of the previous section
+        const prevSectionTotalPages = Math.ceil(SECTIONS[currentSection - 1].questions.length / MAX_QUESTIONS_PER_PAGE);
+        setCurrentPage(prevSectionTotalPages - 1);
+      }
+    } else {
+      // Move to the previous page in the current section
+      setCurrentPage(currentPage - 1);
     }
   };
 
@@ -451,120 +505,166 @@ export default function Questionnaire() {
     }
   };
 
-  const saveProgress = async (isComplete = false) => {
-    if (!auth.currentUser) return;
+  // Function to generate personal summary using OpenAI API
+  const generatePersonalSummary = async () => {
+    if (!auth.currentUser) return false;
     
-    setSaving(true);
     try {
+      console.log('Generating personal summary after questionnaire completion...');
+      
+      // Get the current user data to access questionnaire answers
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const userSnap = await getDoc(userRef);
+      
+      if (!userSnap.exists()) {
+        console.error('User document not found');
+        return false;
+      }
+      
+      const userData = userSnap.data();
+      
+      // Prepare the request data for the summary generation API
+      const requestData = {
+        questionnaireAnswers: userData.questionnaireAnswers || {},
+        firstName: userData.firstName || ''
+      };
+      
+      console.log('Calling generate-summary API with user data...');
+      
+      // Call the API to generate the summary
+      const response = await fetch('/api/generate-summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        console.error('Failed to generate summary:', data.error);
+        return false;
+      }
+      
+      if (data.summary) {
+        // Update the summary in Firebase
+        await updateDoc(userRef, {
+          personalSummary: data.summary
+        });
+        
+        console.log('Personal summary generated and saved successfully');
+        return true;
+      } else {
+        console.error('No summary returned from API');
+        return false;
+      }
+    } catch (error) {
+      console.error('Error generating personal summary:', error);
+      return false;
+    }
+  };
+
+  // Function to force complete the questionnaire
+  const forceCompleteQuestionnaire = async () => {
+    if (!auth.currentUser) return false;
+    
+    try {
+      // Update the user document in Firestore
       const userRef = doc(db, 'users', auth.currentUser.uid);
       
-      // Format any date fields to Australian format (DD.MM.YYYY)
-      const formattedAnswers = { ...answers };
+      await updateDoc(userRef, {
+        questionnaireCompleted: true,
+        questionnaireProgress: 100,
+        completedSections: Object.fromEntries(SECTIONS.map(section => [section.id, true])),
+        questionnaireLastUpdated: new Date()
+      });
       
-      // Check if personal_dob exists in answers and format it
-      if (formattedAnswers.personal_dob) {
-        formattedAnswers.personal_dob = formatDateToAustralian(formattedAnswers.personal_dob);
-        console.log('Formatted personal_dob to Australian format:', formattedAnswers.personal_dob);
-      }
+      console.log('Successfully forced questionnaire completion status');
       
-      // Special handling for partner has children deal breaker
-      const dealBreakersKey = 'dealBreakers_dealBreakers';
-      if (formattedAnswers[dealBreakersKey] && Array.isArray(formattedAnswers[dealBreakersKey])) {
-        const partnerHasChildrenOption = "I wouldn't date someone who already has children";
-        const hasPartnerChildrenDealBreaker = formattedAnswers[dealBreakersKey].includes(partnerHasChildrenOption);
+      // Generate personal summary after marking questionnaire as complete
+      console.log('Triggering personal summary generation...');
+      const summaryResult = await generatePersonalSummary();
+      console.log('Personal summary generation result:', summaryResult);
+      
+      return true;
+    } catch (error) {
+      console.error('Error forcing questionnaire completion:', error);
+      return false;
+    }
+  };
+  
+  const saveProgressWithCompletion = async (isComplete: boolean) => {
+    if (!auth.currentUser) return;
+    
+    try {
+      // Format the answers for Firebase
+      const formattedAnswers: Record<string, any> = {};
+      
+      // Process each answer
+      Object.entries(answers).forEach(([key, value]) => {
+        // Split the key into section and question ID
+        const [section, ...questionParts] = key.split('_');
+        const questionId = questionParts.join('_'); // Rejoin in case there were underscores in the question ID
         
-        // Add a more descriptive field for partner having children
-        formattedAnswers['partnerHasChildren'] = hasPartnerChildrenDealBreaker ? 'No' : 'Yes';
-        console.log(`Setting partnerHasChildren to ${formattedAnswers['partnerHasChildren']} based on deal breaker selection`);
-      }
-      
-      // Log all partner preference fields for debugging
-      console.log('Partner preference fields in questionnaire answers:');
-      Object.keys(formattedAnswers).forEach(key => {
-        if (key.includes('partner')) {
-          console.log(`- ${key}: ${formattedAnswers[key]}`);
+        // Format date fields if needed
+        if (questionId === 'dob' && typeof value === 'string') {
+          // Assuming date is in format DD/MM/YYYY or similar
+          const dateParts = value.split(/[\/.-]/);
+          if (dateParts.length === 3) {
+            // Convert to ISO format (YYYY-MM-DD)
+            const [day, month, year] = dateParts;
+            formattedAnswers[`${section}_${questionId}`] = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          } else {
+            formattedAnswers[`${section}_${questionId}`] = value;
+          }
+        } else {
+          // Use the original key format for all fields
+          formattedAnswers[`${section}_${questionId}`] = value;
         }
       });
       
-      // Also copy the DOB from the user profile if available and format it
-      try {
-        const userDoc = await getDoc(userRef);
-        const userData = userDoc.data();
-        if (userData?.dob && !formattedAnswers.personal_dob) {
-          const formattedDob = formatDateToAustralian(userData.dob);
-          formattedAnswers.personal_dob = formattedDob;
-          console.log('Copied DOB from user profile:', formattedAnswers.personal_dob);
-          
-          // Also update the user's DOB field to ensure it's in Australian format
-          if (formattedDob !== userData.dob) {
-            await updateDoc(userRef, { dob: formattedDob });
-            console.log('Updated user profile DOB to Australian format:', formattedDob);
-          }
-        }
-        
-        // If we have existing questionnaire answers, check for any partner preferences we need to preserve
-        if (userData?.questionnaireAnswers) {
-          // If we don't have a new value for partnerHasChildren but there's an existing one, preserve it
-          if (userData.questionnaireAnswers.partnerHasChildren && !formattedAnswers.partnerHasChildren) {
-            formattedAnswers.partnerHasChildren = userData.questionnaireAnswers.partnerHasChildren;
-            console.log('Preserved existing partnerHasChildren value:', formattedAnswers.partnerHasChildren);
-          }
-        }
-      } catch (error) {
-        console.error('Error getting user data for DOB formatting:', error);
-      }
+      // Mark all sections as completed if isComplete is true
+      const updatedCompletedSections = isComplete ? 
+        Object.fromEntries(SECTIONS.map(section => [section.id, true])) : 
+        completedSections;
       
-      // Base update data with formatted answers
+      // Update the user document in Firestore
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      
+      // Prepare update data with type safety
       const updateData: Record<string, any> = {
         questionnaireAnswers: formattedAnswers,
-        completedSections: completedSections,
-        questionnaireCompleted: isComplete,
-        questionnaireLastUpdated: new Date().toISOString()
+        completedSections: updatedCompletedSections,
+        questionnaireProgress: isComplete ? 100 : progress,
+        updatedAt: new Date(),
+        questionnaireLastUpdated: new Date()
       };
       
-      // If the questionnaire is complete, generate a summary using ChatGPT
+      // Always set questionnaireCompleted flag when isComplete is true
       if (isComplete) {
-        try {
-          // Get the user's first name from Firebase
-          let firstName = '';
-          try {
-            const userDoc = await getDoc(userRef);
-            const userData = userDoc.data();
-            firstName = userData?.firstName || '';
-            console.log('Retrieved firstName for summary generation:', firstName);
-          } catch (error) {
-            console.error('Error getting user firstName:', error);
-          }
-          
-          const response = await fetch('/api/generate-summary', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ 
-              questionnaireAnswers: formattedAnswers,
-              firstName: firstName
-            })
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (data.summary) {
-              // Add the summary to the update data
-              updateData.personalSummary = data.summary;
-            }
-          } else {
-            console.error('Failed to generate summary:', await response.text());
-          }
-        } catch (error) {
-          console.error('Error generating summary:', error);
-          // Continue with the save even if summary generation fails
-        }
+        updateData.questionnaireCompleted = true;
       }
       
       await updateDoc(userRef, updateData);
+      
+      console.log('Progress saved successfully with completion status:', isComplete);
+      return true;
     } catch (error) {
       console.error('Error saving questionnaire progress:', error);
+      return false;
+    }
+  };
+  
+  const saveProgress = async () => {
+    if (!auth.currentUser) return;
+    
+    setSaving(true);
+    
+    try {
+      await saveProgressWithCompletion(false);
+    } catch (error) {
+      console.error('Error in saveProgress:', error);
     } finally {
       setSaving(false);
     }
@@ -600,7 +700,6 @@ export default function Questionnaire() {
         );
       
       case 'select':
-        const answerId = `${currentSectionData.id}_${question.id}`;
         const showOtherInput = question.showOtherInput && typeof currentAnswer === 'string' && 
           (currentAnswer.includes('Other') || 
            (question.id === 'ethnicPreference' && currentAnswer.includes('Yes')));
@@ -609,19 +708,23 @@ export default function Questionnaire() {
         return (
           <div className="mb-6">
             <label className={`block text-white mb-6 text-base md:text-lg ${inter.className} group-hover:text-[#3B00CC] transition-colors duration-300 font-medium`}>{question.text}</label>
-            <div className="flex flex-wrap justify-center gap-6 mt-6">
+            <div className="flex flex-wrap justify-center gap-6 mt-6" style={{ position: 'relative', zIndex: 10 }}>
               {question.options.map((option: string) => {
-                // For selected "Other" option, show the custom text if available
-                const displayText = option.includes('Other') && typeof currentAnswer === 'string' && currentAnswer === option && otherValue 
+                const isSelected = currentAnswer === option;
+                const displayText = option.includes('Other') && isSelected && otherValue 
                   ? `Other - ${otherValue}` 
                   : option;
-                  
+                
                 return (
                   <button
                     key={option}
-                    onClick={() => handleAnswer(question.id, option)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAnswer(question.id, option);
+                    }}
+                    style={{ position: 'relative', zIndex: 20, pointerEvents: 'auto' }}
                     className={`w-40 h-40 text-sm font-medium p-5 whitespace-normal rounded-full backdrop-blur-sm transition-all duration-300 flex items-center justify-center overflow-hidden shadow-md ${inter.className} ${
-                      currentAnswer === option
+                      isSelected
                         ? 'bg-[#73FFF6] text-[#3B00CC] border-2 border-[#73FFF6] shadow-lg shadow-[#73FFF6]/30'
                         : 'bg-white/10 text-white border border-white/30 hover:bg-white/20 hover:scale-105'
                     }`}
@@ -633,14 +736,13 @@ export default function Questionnaire() {
             </div>
             
             {showOtherInput && (
-              <div className="mt-4 max-w-md mx-auto">
+              <div className="mt-4">
                 <input
                   type="text"
+                  placeholder="Please specify"
                   value={otherValue}
                   onChange={(e) => handleOtherInput(question.id, e.target.value)}
-                  placeholder="Please specify..."
-                  className={`w-full p-3 rounded-lg bg-white/10 border border-[#73FFF6] text-white focus:outline-none focus:ring-2 focus:ring-[#73FFF6] ${inter.className}`}
-                  autoFocus
+                  className={`w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white focus:outline-none focus:ring-2 focus:ring-[#34D8F1] ${inter.className}`}
                 />
               </div>
             )}
@@ -656,23 +758,24 @@ export default function Questionnaire() {
                 <span>{question.minLabel}</span>
                 <span>{question.maxLabel}</span>
               </div>
-              <div className="flex items-center space-x-2">
-                {Array.from({ length: question.max - question.min + 1 }).map((_, idx) => {
-                  const value = question.min + idx;
-                  return (
-                    <button
-                      key={value}
-                      onClick={() => handleAnswer(question.id, value)}
-                      className={`flex-1 h-10 rounded-md transition-colors ${inter.className} ${
-                        currentAnswer === value
-                          ? 'bg-[#73FFF6] text-[#3B00CC]'
-                          : 'bg-white/10 text-white hover:bg-white/20'
-                      }`}
-                    >
-                      {value}
-                    </button>
-                  );
-                })}
+              <div className="flex justify-center items-center gap-2 mt-6" style={{ position: 'relative', zIndex: 10 }}>
+                {Array.from({ length: 11 }, (_, i) => i).map((value) => (
+                  <button
+                    key={value}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleAnswer(question.id, value);
+                    }}
+                    style={{ position: 'relative', zIndex: 20, pointerEvents: 'auto' }}
+                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${inter.className} ${
+                      currentAnswer === value
+                        ? 'bg-[#73FFF6] text-[#3B00CC] border-2 border-[#73FFF6] shadow-lg shadow-[#73FFF6]/30'
+                        : 'bg-white/10 text-white border border-white/30 hover:bg-white/20'
+                    }`}
+                  >
+                    {value}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
@@ -687,22 +790,26 @@ export default function Questionnaire() {
             <label className={`block text-white mb-6 text-base md:text-lg ${inter.className} group-hover:text-[#3B00CC] transition-colors duration-300 font-medium`}>{question.text}</label>
             {selectedCount > 0 && (
               <p className={`text-white/70 text-sm mb-4 ${inter.className}`}>
-                {selectedCount}/3 selected
+                {selectedCount}/5 selected
               </p>
             )}
-            <div className="flex flex-wrap justify-center gap-6 mt-6">
+            <div className="flex flex-wrap justify-center gap-6 mt-6" style={{ position: 'relative', zIndex: 10 }}>
               {question.options.map((option: string) => {
                 const isSelected = multiValues.includes(option);
                 return (
                   <button
                     key={option}
-                    onClick={() => handleMultiselect(question.id, option)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleMultiselect(question.id, option);
+                    }}
+                    style={{ position: 'relative', zIndex: 20, pointerEvents: 'auto' }}
                     className={`w-40 h-40 text-sm font-medium p-5 whitespace-normal rounded-full backdrop-blur-sm transition-all duration-300 flex items-center justify-center overflow-hidden shadow-md ${inter.className} ${
                       isSelected
                         ? 'bg-[#73FFF6] text-[#3B00CC] border-2 border-[#73FFF6] shadow-lg shadow-[#73FFF6]/30'
                         : 'bg-white/10 text-white border border-white/30 hover:bg-white/20 hover:scale-105'
                     }`}
-                    disabled={selectedCount >= 3 && !isSelected}
+                    disabled={selectedCount >= 5 && !isSelected}
                   >
                     {option}
                   </button>
@@ -985,7 +1092,7 @@ export default function Questionnaire() {
                 {/* Questions - 2 Column Layout for Desktop */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 w-full">
                   {currentQuestions.map((question) => (
-                    <div key={question.id} className="group relative p-4 md:p-6 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300">
+                    <div key={question.id} className="group relative p-4 md:p-6 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300" style={{ pointerEvents: 'auto', position: 'relative', zIndex: 5 }}>
                       {renderQuestion(question)}
                     </div>
                   ))}
@@ -994,14 +1101,14 @@ export default function Questionnaire() {
                 {/* Navigation Buttons */}
                 <div className="flex justify-between gap-4 mt-8">
                   <PulseButton
-                    onClick={handlePrevious}
+                    onClick={handlePrevPage}
                     disabled={saving}
                     className="!bg-white/10 !text-white hover:!bg-white/20 !py-2 !px-4 md:!py-3 md:!px-20"
                   >
                     Previous
                   </PulseButton>
                   <PulseButton
-                    onClick={handleNext}
+                    onClick={handleNextPage}
                     disabled={saving}
                     className="!bg-[#73FFF6] !py-2 !px-4 md:!py-3 md:!px-20 !text-[#3B00CC] hover:!bg-[#73FFF6]/90"
                   >

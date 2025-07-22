@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny all access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    // Check if the user is authenticated and has the matchmaker role
+    function isMatchmaker() {
+      return request.auth != null && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'matchmaker';
+    }
+    
+    // Give matchmakers full access to most collections
+    match /users/{userId} {
+      allow read, write: if isMatchmaker() || (request.auth != null && request.auth.uid == userId);
+    }
+    
+    match /matches/{matchId} {
+      allow read, write: if isMatchmaker() || 
+                          (request.auth != null && 
+                          (resource.data.member1Id == request.auth.uid || 
+                           resource.data.member2Id == request.auth.uid));
+    }
+    
+    match /notifications/{notificationId} {
+      allow read, write: if isMatchmaker() || 
+                          (request.auth != null && resource.data.recipientId == request.auth.uid);
+    }
+    
+    // Special rule for vettly2Notifications collection - allow both matchmakers and members
+    match /vettly2Notifications/{notificationId} {
+      // Matchmakers can do anything
+      allow read, write: if isMatchmaker();
+      
+      // Members can read their own notifications
+      allow read: if request.auth != null && resource.data.memberId == request.auth.uid;
+      
+      // Members can update only the 'viewed' and 'viewedAt' fields of their own notifications
+      allow update: if request.auth != null && 
+                   resource.data.memberId == request.auth.uid && 
+                   request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewed', 'viewedAt', 'status']);
+    }
+    
+    // Calendar events collection
+    match /calendar_events/{eventId} {
+      allow read, write: if isMatchmaker() || 
+                          (request.auth != null && 
+                          (resource.data.userId == request.auth.uid || 
+                           resource.data.requestToUserId == request.auth.uid));
+    }
+    
+    // Weekly Tips collection
+    match /weeklyTips/{tipId} {
+      allow read: if true;
+      allow write: if isMatchmaker();
+    }
+    
+    // User Tip Views collection
+    match /userTipViews/{viewId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow create, update: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+  }
+}

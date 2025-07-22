@@ -1,89 +1,16 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Default deny all access
+    // Allow read/write access to all users for development purposes
+    // IMPORTANT: This is a temporary solution for debugging
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if request.auth != null;
     }
     
-    // User profiles - users can read/write only their own data
-    match /users/{userId} {
-      allow read: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
-      allow delete: if request.auth != null && request.auth.uid == userId;
-    }
-    
-    // Notes collection - authenticated users can access notes
-    // Since your current implementation doesn't include userId in notes
-    match /notes/{noteId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null && request.resource.data.timestamp is string;
-      allow update: if request.auth != null;
-      allow delete: if request.auth != null;
-    }
-    
-    // Weekly Tips collection - authenticated users can read, only admin can write
-    match /weeklyTips/{tipId} {
-      // Anyone can read weekly tips
-      allow read: if true;
-      // For development purposes, allow authenticated users to create/update/delete
-      // In production, you might want to restrict this to admin users
-      allow create, update, delete: if request.auth != null;
-    }
-    
-    // User Tip Views collection - track which users have viewed which tips
-    match /userTipViews/{viewId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
-      allow create, update: if request.auth != null && request.auth.uid == request.resource.data.userId;
-      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
-    }
-    
-    // Calendar events collection - users can read/write their own events
-    match /calendar_events/{eventId} {
-      allow read: if request.auth != null && 
-                 (resource.data.userId == request.auth.uid || 
-                  resource.data.requestToUserId == request.auth.uid);
-      allow create: if request.auth != null && 
-                   request.resource.data.userId == request.auth.uid;
-      allow update: if request.auth != null && 
-                   (resource.data.userId == request.auth.uid || 
-                    resource.data.requestToUserId == request.auth.uid);
-      allow delete: if request.auth != null && 
-                   resource.data.userId == request.auth.uid;
-    }
-    
-    // Calendar collection (alternative location for events)
-    match /calendar/{eventId} {
-      // Allow authenticated users to read all calendar events
-      allow read: if request.auth != null;
-      // Allow users to create events with their user ID
-      allow create: if request.auth != null && 
-                   request.resource.data.userId == request.auth.uid;
-      // Allow users to update their own events
-      allow update: if request.auth != null && 
-                   (resource.data.userId == request.auth.uid || 
-                    resource.data.requestToUserId == request.auth.uid);
-      // Allow users to delete their own events
-      allow delete: if request.auth != null && 
-                   resource.data.userId == request.auth.uid;
-    }
-    
-    // Add rules for any other collections your app uses
-    // For example, if you have a matches collection for user matching:
-    match /matches/{matchId} {
-      allow read: if request.auth != null && 
-                  (resource.data.user1Id == request.auth.uid || 
-                   resource.data.user2Id == request.auth.uid);
-      allow create: if request.auth != null && 
-                    (request.resource.data.user1Id == request.auth.uid || 
-                     request.resource.data.user2Id == request.auth.uid);
-      allow update: if request.auth != null && 
-                    (resource.data.user1Id == request.auth.uid || 
-                     resource.data.user2Id == request.auth.uid);
-      allow delete: if request.auth != null && 
-                    (resource.data.user1Id == request.auth.uid || 
-                     resource.data.user2Id == request.auth.uid);
+    // Special rule for vettly2Notifications collection
+    match /vettly2Notifications/{notificationId} {
+      // Allow any authenticated user to read/write
+      allow read, write: if request.auth != null;
     }
   }
 }

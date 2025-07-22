@@ -7,10 +7,14 @@ import { useWeeklyTip } from '@/hooks/useWeeklyTip';
 import { WeeklyTipButton } from '@/components/tips/WeeklyTipButton';
 import { WeeklyTipModal } from '@/components/tips/WeeklyTipModal';
 import { format } from 'date-fns';
+import { DashboardMatchesPreview } from '@/components/matches/DashboardMatchesPreview';
+import { useProposedMatches } from '@/hooks/useProposedMatches';
+import { MatchApprovalStatus } from '@/lib/types/matchmaking';
+import { useMatchNotifications } from '@/hooks/useMatchNotifications';
 import Image from 'next/image';
 import { inter, playfair } from '../fonts';
 import { useAuth, AuthContextType } from '@/context/AuthContext';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase-init';
 import { useRouter } from 'next/navigation';
 import { Menu, Transition, Dialog } from '@headlessui/react';
@@ -33,7 +37,10 @@ interface UserData {
   lastName: string;
   profilePhotoUrl: string;
   questionnaireCompleted?: boolean;
+  questionnaireProgress?: number;
+  questionnaireLastUpdated?: string;
   completedSections?: Record<string, boolean>;
+  questionnaireAnswers?: Record<string, any>;
 }
 
 export default function Dashboard() {
@@ -43,7 +50,65 @@ export default function Dashboard() {
   const [userDataState, setUserData] = useState<UserData | null>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [profileImage, setProfileImage] = useState('/placeholder-profile.jpg');
+  const { notifications, markAsViewed, markAllAsViewed } = useMatchNotifications();
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [markingAllAsRead, setMarkingAllAsRead] = useState(false);
+  const notificationRef = useRef<HTMLDivElement>(null);
+  
+  // Handle click outside to close notification dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+  
+  // Fetch proposed matches data
+  const { matches: fetchedMatches, loading: matchesLoading, acceptMatch, declineMatch } = useProposedMatches();
+  
+  // Use real matches data only
+  const [matches, setMatches] = useState(fetchedMatches);
+  
+  useEffect(() => {
+    console.log('Dashboard - fetched matches data:', fetchedMatches);
+    console.log('Dashboard - matchesLoading:', matchesLoading);
+    
+    // Update matches with real data only
+    setMatches(fetchedMatches);
+  }, [fetchedMatches, matchesLoading]);
+  
+  // Filter for unread notifications (status === 'pending')
+  const unreadNotifications = notifications.filter(notification => notification.status === 'pending');
+  
+  // Function to handle viewing all notifications
+  const handleMarkAllAsRead = async () => {
+    for (const notification of unreadNotifications) {
+      await markAsViewed(notification.id);
+    }
+    setShowNotifications(false);
+  };
+  
+  // Handle click outside to close notification dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
   const [showQuestionnairePopup, setShowQuestionnairePopup] = useState(false);
+  const [isFixingQuestionnaire, setIsFixingQuestionnaire] = useState(false);
   
   // Use the weekly tip hook
   const { 
@@ -88,8 +153,30 @@ export default function Dashboard() {
             console.log('User data from Firestore:', data);
             setUserData(data);
             
-            // Check if questionnaire is not completed and show popup
-            if (data.questionnaireCompleted === false || data.questionnaireCompleted === undefined) {
+            // Check if questionnaire is completed
+            console.log('Questionnaire completed status:', data.questionnaireCompleted);
+            console.log('Questionnaire progress:', data.questionnaireProgress);
+            
+            // Consider the questionnaire completed if:
+            // 1. The questionnaireCompleted flag is explicitly true, OR
+            // 2. The questionnaire progress is 100% or higher
+            const isQuestionnaireDone = 
+              data.questionnaireCompleted === true || 
+              (data.questionnaireProgress !== undefined && data.questionnaireProgress >= 100);
+            
+            // If the questionnaire is done, make sure we update the flag in Firebase
+            if (!data.questionnaireCompleted && data.questionnaireProgress !== undefined && data.questionnaireProgress >= 100) {
+              console.log('Questionnaire progress is 100% but flag is not set, updating...');
+              try {
+                const userRef = doc(db, 'users', auth.currentUser.uid);
+                updateDoc(userRef, { questionnaireCompleted: true });
+              } catch (error) {
+                console.error('Error updating questionnaire completion flag:', error);
+              }
+            }
+            
+            // Only show popup if the questionnaire is not done
+            if (!isQuestionnaireDone) {
               setShowQuestionnairePopup(true);
             }
             
@@ -168,13 +255,54 @@ export default function Dashboard() {
     fileInputRef.current?.click();
   };
   
+  const closeQuestionnairePopup = () => {
+    setShowQuestionnairePopup(false);
+  };
+
+  const goToQuestionnaire = () => {
+    router.push('/questionnaire');
+  };
+  
+  // Function to manually fix questionnaire completion status
+  const fixQuestionnaireStatus = async () => {
+    if (!auth.currentUser) return;
+    
+    try {
+      setIsFixingQuestionnaire(true);
+      console.log('Manually fixing questionnaire completion status...');
+      
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      
+      await updateDoc(userRef, {
+        questionnaireCompleted: true,
+        questionnaireProgress: 100
+      });
+      
+      // Update local state
+      if (userDataState) {
+        setUserData({
+          ...userDataState,
+          questionnaireCompleted: true,
+          questionnaireProgress: 100
+        });
+      }
+      
+      // Close popup if open
+      setShowQuestionnairePopup(false);
+      
+      console.log('Successfully fixed questionnaire completion status!');
+      alert('Questionnaire status has been fixed!');
+    } catch (error) {
+      console.error('Error fixing questionnaire status:', error);
+      alert('Error fixing questionnaire status. Please try again.');
+    } finally {
+      setIsFixingQuestionnaire(false);
+    }
+  };
+
   const startQuestionnaire = () => {
     setShowQuestionnairePopup(false);
     router.push('/questionnaire');
-  };
-
-  const closeQuestionnairePopup = () => {
-    setShowQuestionnairePopup(false);
   };
 
   if (isLoading) {
@@ -261,10 +389,17 @@ export default function Dashboard() {
                 Later
               </button>
               <button
-                onClick={startQuestionnaire}
-                className="px-6 py-2 bg-[#3B00CC] text-white rounded-lg hover:bg-[#3B00CC]/90 transition-colors"
+                onClick={goToQuestionnaire}
+                className="px-6 py-2 bg-[#3B00CC] text-white rounded-lg hover:bg-[#2800A3] transition-colors"
               >
                 Start Now
+              </button>
+              <button
+                onClick={fixQuestionnaireStatus}
+                disabled={isFixingQuestionnaire}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                {isFixingQuestionnaire ? 'Fixing...' : 'Fix Status'}
               </button>
             </div>
           </Dialog.Panel>
@@ -277,16 +412,135 @@ export default function Dashboard() {
         {/* Content Container */}
         <div className="relative h-full z-10">
           <div className="h-full overflow-y-auto px-4 py-8">
-            {/* Logo */}
-            <div className="flex justify-center mb-8">
-              <Image
-                src="/vettly-logo.png"
-                alt="Vettly Logo"
-                width={120}
-                height={30}
-                className=""
-                priority
-              />
+            {/* Logo and Notification Bell */}
+            <div className="flex justify-between items-center mb-8 px-4">
+              <div>
+                <Image
+                  src="/vettly-logo.png"
+                  alt="Vettly Logo"
+                  width={120}
+                  height={30}
+                  className=""
+                  priority
+                />
+              </div>
+              
+              {/* Notification Bell */}
+              <div className="relative" ref={notificationRef}>
+                <div 
+                  className="cursor-pointer p-2 rounded-full hover:bg-white/10 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowNotifications(!showNotifications);
+                  }}
+                >
+                  <svg className="w-8 h-8" fill="none" stroke="white" strokeWidth="1.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  
+                  {unreadNotifications.length > 0 && (
+                    <div className="absolute top-0 right-0 transform translate-x-1/3 -translate-y-1/3">
+                      <div className="flex items-center justify-center w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold">
+                        {unreadNotifications.length}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Notification Dropdown */}
+                {showNotifications && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg overflow-hidden z-50">
+                    <div className="p-4 border-b border-gray-200 flex justify-between items-center">
+                      <h3 className="text-lg font-semibold text-gray-800">Notifications</h3>
+                      {unreadNotifications.length > 0 && (
+                        <button 
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            setMarkingAllAsRead(true);
+                            await markAllAsViewed();
+                            setMarkingAllAsRead(false);
+                          }}
+                          disabled={markingAllAsRead}
+                          className={`text-sm ${markingAllAsRead ? 'text-gray-400' : 'text-blue-600 hover:text-blue-800'} transition-colors flex items-center gap-1`}
+                        >
+                          {markingAllAsRead ? (
+                            <>
+                              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              Processing...
+                            </>
+                          ) : (
+                            'Mark all as read'
+                          )}
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="max-h-96 overflow-y-auto">
+                      {notifications.length > 0 ? (
+                        <div>
+                          {notifications.map((notification) => (
+                            <div 
+                              key={notification.id} 
+                              className={`p-4 border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${notification.status === 'pending' ? 'bg-blue-50' : ''}`}
+                              onClick={async () => {
+                                if (notification.status === 'pending') {
+                                  await markAsViewed(notification.id);
+                                }
+                                setShowNotifications(false); // Close dropdown
+                                router.push('/matches');
+                              }}
+                            >
+                              <div className="flex items-start">
+                                <div className="flex-shrink-0 mr-3">
+                                  {notification.matchData?.otherMemberPhotoUrl ? (
+                                    <Image 
+                                      src={notification.matchData.otherMemberPhotoUrl} 
+                                      alt="Profile" 
+                                      width={40} 
+                                      height={40} 
+                                      className="rounded-full"
+                                    />
+                                  ) : (
+                                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                      <span className="text-gray-500 text-sm">{notification.matchData?.otherMemberName?.charAt(0) || '?'}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                <div>
+                                  <p className="font-medium text-gray-800">
+                                    Match notification for {notification.matchData?.otherMemberName}
+                                  </p>
+                                  <p className="text-sm text-gray-500 mt-1">
+                                    {new Date(notification.createdAt).toLocaleString()}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-4 text-center text-gray-500">
+                          No notifications
+                        </div>
+                      )}
+                    </div>
+                    
+                    {notifications.length > 0 && (
+                      <div className="p-3 bg-gray-50 border-t border-gray-200">
+                        <button 
+                          className="w-full py-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                          onClick={handleMarkAllAsRead}
+                        >
+                          Mark all as read
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Welcome Section with Profile Picture */}
@@ -347,14 +601,14 @@ export default function Dashboard() {
                         <div className="flex items-center justify-between mb-4">
                           <h3 className="text-xl text-white">Your Progress</h3>
                           <span className="text-[#3B00CC] text-sm">
-                            {userDataState?.questionnaireCompleted ? '3' : '2'} of 6 Steps Complete
+                            {matches && matches.length > 0 ? '4' : userDataState?.questionnaireCompleted ? '3' : '2'} of 6 Steps Complete
                           </span>
                         </div>
                         {/* Progress Bar */}
                         <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
                           <div 
                             className="absolute left-0 top-0 h-full !bg-gradient-to-r !from-[#73FFF6] !to-[#3B00CC]"
-                            style={{ width: userDataState?.questionnaireCompleted ? '50%' : '33%' }}
+                            style={{ width: matches && matches.length > 0 ? '66%' : userDataState?.questionnaireCompleted ? '50%' : '33%' }}
                           />
                         </div>
                       </div>
@@ -477,23 +731,45 @@ export default function Dashboard() {
 
                           {/* Matching */}
                           <div className="group relative grid grid-cols-[2rem_1fr_auto] items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300">
-                            <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center mt-1">
-                              <div className="w-2 h-2 rounded-full bg-white"></div>
+                            <div className={`w-6 h-6 rounded-full ${matches && matches.length > 0 ? 'bg-[#3B00CC]' : 'bg-white/10'} flex items-center justify-center mt-1`}>
+                              {matches && matches.length > 0 ? (
+                                <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+                                </svg>
+                              ) : (
+                                <div className="w-2 h-2 rounded-full bg-white"></div>
+                              )}
                             </div>
                             <div className="text-left">
                               <div className="flex items-center gap-2">
                                 <h4 className="text-lg text-white leading-tight group-hover:text-white/80 transition-colors duration-300">Matching</h4>
-
                               </div>
                               <p className="text-white/70 text-sm mt-0.5">Finding your perfect match</p>
                             </div>
-                            <div className="text-white text-sm mt-1">In Progress</div>
+                            <div className="text-white text-sm mt-1">{matches && matches.length > 0 ? 'Done' : 'In Progress'}</div>
                           </div>
 
                           {/* Connecting Line */}
                           <div className="w-px h-8 bg-white/10 ml-3"></div>
 
-                          {/* Verification */}
+                          {/* Approve Match */}
+                          <div className="group relative grid grid-cols-[2rem_1fr_auto] items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300">
+                            <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center mt-1">
+                              <div className="w-2 h-2 rounded-full bg-white/80"></div>
+                            </div>
+                            <div className="text-left">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-lg text-white leading-tight group-hover:text-white/80 transition-colors duration-300">Approve Match</h4>
+                              </div>
+                              <p className="text-white/70 text-sm mt-0.5">Review and approve your matches</p>
+                            </div>
+                            <div className="text-white text-sm mt-1">To Do</div>
+                          </div>
+
+                          {/* Connecting Line */}
+                          <div className="w-px h-8 bg-white/10 ml-3"></div>
+
+                          {/* Verification/Become Member */}
                           <div className="group relative grid grid-cols-[2rem_1fr_auto] items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300">
                             <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center mt-1">
                               <div className="w-2 h-2 rounded-full bg-white/80"></div>
@@ -501,27 +777,8 @@ export default function Dashboard() {
                             <div className="text-left">
                               <div className="flex items-center gap-2">
                                 <h4 className="text-lg text-white leading-tight group-hover:text-white/80 transition-colors duration-300">Verification</h4>
-
                               </div>
-                              <p className="text-white/70 text-sm mt-0.5">Identity verification process</p>
-                            </div>
-                            <div className="text-white text-sm mt-1">Coming Soon</div>
-                          </div>
-
-                          {/* Connecting Line */}
-                          <div className="w-px h-8 bg-white/10 ml-3"></div>
-
-                          {/* First Connection */}
-                          <div className="group relative grid grid-cols-[2rem_1fr_auto] items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-300">
-                            <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center mt-1">
-                              <div className="w-2 h-2 rounded-full bg-white/80"></div>
-                            </div>
-                            <div className="text-left">
-                              <div className="flex items-center gap-2">
-                                <h4 className="text-lg text-white leading-tight group-hover:text-white/80 transition-colors duration-300">First Match</h4>
-
-                              </div>
-                              <p className="text-white/70 text-sm mt-0.5">Start your journey</p>
+                              <p className="text-white/70 text-sm mt-0.5">Verify identity to become a member</p>
                             </div>
                             <div className="text-white text-sm mt-1">Coming Soon</div>
                           </div>
@@ -562,8 +819,16 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    {/* Right Column - Messages, Events, Tips */}
+                    {/* Right Column - Matches, Messages, Events, Tips */}
                     <div>
+                      {/* Matches Preview Section */}
+                      <div className="mb-8">
+                        <DashboardMatchesPreview 
+                          matches={matches} 
+                          isLoading={matchesLoading} 
+                        />
+                      </div>
+
                       {/* Messages Section */}
                       <div className="mb-8">
                         <div className="p-6 rounded-xl backdrop-blur-lg bg-white/5 hover:bg-white/10 shadow-[0_8px_32px_rgb(31,38,135,0.15)] transition-all duration-300">

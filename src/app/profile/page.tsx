@@ -1151,20 +1151,20 @@ export default function Profile() {
                     </div>
                   </div>
                   
-                  {/* Personal Summary section */}
+                  {/* About section */}
                   <div className="mt-8 mb-8">
-                    <h2 className="text-2xl font-semibold text-white mb-4">Personal Summary</h2>
+                    <h2 className="text-2xl font-semibold text-white mb-4">About</h2>
                     <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 w-full">
                       <p className="text-white text-sm leading-relaxed" style={{fontFamily: inter.style.fontFamily}}>
                         {userData.personalSummary || "Bob, you're an extroverted, spontaneous individual with a calm and grounded personality. You love reading, enjoy mixing things up, and have a high regard for health. As a lawyer, you've learned the importance of balance - between work and personal life, and also in relationships, where you appreciate a blend of independence and togetherness. You value self-awareness, empathy, and optimism in your partner and look for honesty above all. In relationships, you're all in, ready to support your partner financially while expecting the same degree of emotional connection. You're a person who addresses conflicts straight away and prefers to take the lead but makes decisions logically, considering all pros and cons. Physical attraction and intimacy are crucial to you, and you're open to your partner's choices in cosmetic enhancements. For you, it's important that your partner doesn't have children from previous relationships. You're comfortable with your partner's occasional social use of drugs or alcohol, provided it's respectful. You also value your alone time to recharge and handle stress."}
                       </p>
-                      {/* No Summarize Again button as requested */}
+                      {/* Information about personal summary generation */}
                       {!userData.personalSummary && (
-                        <button 
-                          className="mt-4 px-5 py-2.5 bg-[#34D8F1] text-white rounded-lg text-sm font-medium hover:bg-[#34D8F1]/80 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center w-full shadow-sm"
-                        >
-                          Generate Summary
-                        </button>
+                        <div className="mt-4 p-3 bg-white/5 rounded-lg border border-white/10">
+                          <p className="text-white/70 text-xs text-center">
+                            Your personal summary will be automatically generated after completing the questionnaire.
+                          </p>
+                        </div>
                       )}
                     </div>
                   </div>

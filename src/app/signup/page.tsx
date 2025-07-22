@@ -26,6 +26,7 @@ interface SignupData {
   state: string;
   educationLevel: string;
   incomeLevel: string;
+  mobileNumber: string;
 }
 
 const educationLevels = [
@@ -85,7 +86,8 @@ export default function SignupPage() {
     suburb: '',
     state: '',
     educationLevel: '',
-    incomeLevel: ''
+    incomeLevel: '',
+    mobileNumber: ''
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -125,7 +127,7 @@ export default function SignupPage() {
       }
 
       // Validate all required fields
-      const requiredFields = ['firstName', 'lastName', 'dob', 'sex', 'maritalStatus', 'suburb', 'state', 'educationLevel', 'incomeLevel'] as const;
+      const requiredFields = ['firstName', 'lastName', 'dob', 'sex', 'maritalStatus', 'suburb', 'state', 'educationLevel', 'incomeLevel', 'mobileNumber'] as const;
       const missingFields = requiredFields.filter(field => !formData[field]);
       
       if (missingFields.length > 0) {
@@ -477,6 +479,18 @@ export default function SignupPage() {
 
                 {/* Right Column */}
                 <div className="space-y-4">
+                  <div>
+                    <label htmlFor="mobileNumber" className={labelClasses}>Mobile Number</label>
+                    <input
+                      type="tel"
+                      id="mobileNumber"
+                      name="mobileNumber"
+                      value={formData.mobileNumber}
+                      onChange={handleChange}
+                      className={inputClasses}
+                      placeholder="Enter your mobile number"
+                    />
+                  </div>
                   <div>
                     <label htmlFor="suburb" className={labelClasses}>Suburb</label>
                     <input

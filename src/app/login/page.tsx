@@ -5,17 +5,35 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { OrbField } from '../components/gradients/OrbField';
 import { inter, playfair } from '../fonts';
+import { useAuth } from '@/context/AuthContext';
+import Link from 'next/link';
 
 export default function Login() {
   const [formData, setFormData] = useState({
-    username: '',
+    email: '',
     password: ''
   });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { login, signupWithGoogle } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted:', formData);
+    setError('');
+    setLoading(true);
+    
+    try {
+      console.log('Attempting login with:', formData.email);
+      await login(formData.email, formData.password);
+      console.log('Login successful');
+      router.push('/matches'); // Redirect to matches page after login
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError(err.message || 'Failed to log in');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -26,8 +44,18 @@ export default function Login() {
   };
 
   const handleGoogleLogin = async () => {
-    // TODO: Implement Firebase authentication later
-    console.log('Google login clicked');
+    setError('');
+    setLoading(true);
+    
+    try {
+      await signupWithGoogle();
+      router.push('/matches');
+    } catch (err: any) {
+      console.error('Google login error:', err);
+      setError(err.message || 'Failed to log in with Google');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -51,47 +79,47 @@ export default function Login() {
 
       {/* Login Card Container */}
       <div className="relative z-10 w-full max-w-md px-6">
-        {/* Login Card */}
-        <div className="w-full bg-white/10 backdrop-blur-xl rounded-3xl p-8 shadow-lg border border-white/20">
-          {/* Login Header */}
-          <h1 className={`text-4xl font-bold text-white text-center mb-12 ${playfair.className}`}>LOGIN</h1>
-
-          {/* Login Form */}
+        {/* Login Form */}
+        <div className="relative z-10 bg-white/10 backdrop-blur-md p-8 rounded-3xl shadow-xl w-full max-w-md border border-white/30">
+          <h1 className={`text-center text-4xl font-bold text-white mb-8 ${playfair.className}`}>LOGIN</h1>
+          
+          {error && (
+            <div className="bg-red-500/70 text-white p-3 rounded-lg mb-4 text-center">
+              {error}
+            </div>
+          )}
+          
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Username Field */}
             <div>
-              <div className="relative">
-                <input
-                  type="text"
-                  name="username"
-                  value={formData.username}
-                  onChange={handleChange}
-                  className="w-full h-12 bg-white/10 rounded-full px-6 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(255,255,255,0.2)] border border-white/30"
-                  placeholder="USERNAME"
-                />
-              </div>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="Email"
+                className="w-full px-4 py-3 rounded-full bg-white/20 text-white placeholder-white/70 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
+                required
+              />
             </div>
-
-            {/* Password Field */}
+            
             <div>
-              <div className="relative">
-                <input
-                  type="password"
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full h-12 bg-white/10 rounded-full px-6 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-white/30 transition-all shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(255,255,255,0.2)] border border-white/30"
-                  placeholder="PASSWORD"
-                />
-              </div>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Password"
+                className="w-full px-4 py-3 rounded-full bg-white/20 text-white placeholder-white/70 border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50"
+                required
+              />
             </div>
-
-            {/* Login Button */}
+            
             <button
               type="submit"
               className="w-full h-12 bg-white/20 backdrop-blur-sm text-white rounded-full font-medium hover:bg-white/30 transition-all duration-300 shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(255,255,255,0.2)] border border-white/30"
+              disabled={loading}
             >
-              LOGIN
+              {loading ? 'LOGGING IN...' : 'LOGIN'}
             </button>
 
             {/* OR Divider */}
