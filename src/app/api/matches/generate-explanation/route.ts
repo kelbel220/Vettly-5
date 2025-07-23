@@ -14,12 +14,18 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 export async function POST(request: Request) {
   // Define matchId at the top level so it's available in catch blocks
   let matchId: string = 'unknown';
+  let member1Id: string = '';
+  let member2Id: string = '';
   
   try {
+    console.log('Explanation generation request received');
     // Get match data from request body
     const requestData = await request.json();
     matchId = requestData.matchId;
-    const { member1Id, member2Id } = requestData;
+    member1Id = requestData.member1Id; // Male ID
+    member2Id = requestData.member2Id; // Female ID
+    
+    console.log('Received request with IDs:', { matchId, member1Id, member2Id });
     
     if (!matchId || !member1Id || !member2Id) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
@@ -84,15 +90,15 @@ export async function POST(request: Request) {
       const member2FormattedData = formatUserDataForPrompt(member2Data);
       
       // Create the prompt for OpenAI
-      const prompt = createMatchExplanationPrompt(member1FormattedData, member2FormattedData);
+      const prompt = createGenderSpecificExplanationPrompt(member1FormattedData, member2FormattedData);
       
-      console.log('Calling OpenAI API to generate match explanation...');
+      console.log('Calling OpenAI API to generate gender-specific match explanations...');
       
       // Prepare the messages for the API call
       const messages = [
         {
           role: 'system' as const,
-          content: 'You are an expert matchmaker with years of experience helping people find meaningful relationships. You create personalized explanations of why two people would be a great match based on their profiles and questionnaire answers.'
+          content: 'You are an expert matchmaker with years of experience helping people find meaningful relationships. You create personalized, gender-specific explanations of why two people would be a great match based on their profiles and questionnaire answers.'
         },
         {
           role: 'user' as const,
@@ -142,17 +148,62 @@ export async function POST(request: Request) {
       
       const responseData = await response.json();
       console.log('OpenAI API response received successfully');
-      const explanation = responseData.choices[0].message.content;
+      const contentText = responseData.choices[0].message.content;
       
       // Calculate tokens used and generation time
       const tokensUsed = responseData.usage?.total_tokens || 0;
       const generationTimeMs = Date.now() - startTime;
       
-      // Update the match document with the generated explanation
+      // Parse the response to extract gender-specific explanations
+      let member1Explanation = '';
+      let member2Explanation = '';
+      let member1Points = [];
+      let member2Points = [];
+      
+      try {
+        // Try to parse the response as JSON
+        const parsedContent = JSON.parse(contentText);
+        
+        if (parsedContent.member1Explanation && parsedContent.member2Explanation) {
+          // If we got the expected format with both explanations
+          member1Points = parsedContent.member1Explanation;
+          member2Points = parsedContent.member2Explanation;
+          member1Explanation = JSON.stringify(parsedContent.member1Explanation);
+          member2Explanation = JSON.stringify(parsedContent.member2Explanation);
+          console.log('Successfully parsed gender-specific explanations');
+        } else {
+          // Fallback if we don't get the expected format
+          console.warn('Response did not contain both member1Explanation and member2Explanation');
+          member1Explanation = contentText;
+          member2Explanation = contentText;
+          
+          // Create fallback points
+          member1Points = [{ header: "Why You're Compatible", explanation: contentText }];
+          member2Points = [{ header: "Why You're Compatible", explanation: contentText }];
+        }
+      } catch (parseError) {
+        // If parsing fails, use the raw content as a fallback
+        console.warn('Failed to parse OpenAI response as JSON:', parseError);
+        member1Explanation = contentText;
+        member2Explanation = contentText;
+        
+        // Create fallback points
+        member1Points = [{ header: "Why You're Compatible", explanation: contentText }];
+        member2Points = [{ header: "Why You're Compatible", explanation: contentText }];
+      }
+      
+      // Update the match document with the generated explanations
       try {
         const matchRef = doc(db, 'matches', matchId);
         await updateDoc(matchRef, {
-          compatibilityExplanation: explanation,
+          // Remove the generic compatibility explanation
+          compatibilityExplanation: null,
+          // Add gender-specific explanations as strings
+          member1Explanation,
+          member2Explanation,
+          // Add gender-specific explanations as structured points
+          member1Points,
+          member2Points,
           explanationGeneratedAt: new Date().toISOString(),
           explanationMetrics: {
             tokensUsed,
@@ -162,7 +213,7 @@ export async function POST(request: Request) {
           }
         });
         
-        console.log(`Updated match ${matchId} with generated explanation`);
+        console.log(`Updated match ${matchId} with gender-specific explanations`);
         
         // Log the successful generation for monitoring
         await logExplanationGeneration(
@@ -172,19 +223,22 @@ export async function POST(request: Request) {
           dataQualityScore
         );
       } catch (updateError) {
-        console.error('Error updating match with explanation:', updateError);
+        console.error('Error updating match with explanations:', updateError);
         await logExplanationError(
           matchId,
           'firebase_update_error',
           String(updateError),
           500
         );
-        // Continue anyway since we want to return the explanation
+        // Continue anyway since we want to return the explanations
       }
       
       return NextResponse.json({ 
         matchId,
-        explanation,
+        member1Explanation,
+        member2Explanation,
+        member1Points,
+        member2Points,
         generated: new Date().toISOString(),
         dataQualityScore,
         metrics: {
@@ -205,17 +259,41 @@ export async function POST(request: Request) {
       
       return NextResponse.json({ error: 'Error fetching user data: ' + (error.message || 'Unknown error') }, { status: 500 });
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error generating match explanation:', error);
+    console.error('Match ID:', matchId);
+    console.error('Member IDs:', { member1Id, member2Id });
+    
+    // Get more detailed error information
+    let errorMessage = 'Unknown error';
+    let errorDetails = {};
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      errorDetails = {
+        name: error.name,
+        stack: error.stack
+      };
+    } else {
+      errorMessage = String(error);
+    }
+    
+    console.error('Error details:', errorMessage, errorDetails);
     
     await logExplanationError(
-      matchId || 'unknown',
-      'general_error',
-      error.message || 'Unknown error',
+      matchId,
+      'server_error',
+      errorMessage,
       500
     );
     
-    return NextResponse.json({ error: 'Internal server error: ' + (error.message || 'Unknown error') }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to generate match explanation', 
+      message: errorMessage,
+      matchId,
+      member1Id,
+      member2Id
+    }, { status: 500 });
   }
 }
 
@@ -428,7 +506,79 @@ function formatUserDataForPrompt(userData: any): string {
 }
 
 /**
- * Create a prompt for OpenAI to generate a match explanation
+ * Create a prompt for OpenAI to generate gender-specific match explanations
+ */
+function createGenderSpecificExplanationPrompt(member1Data: string, member2Data: string): string {
+  return `As an expert matchmaker, create TWO separate personalized explanations of why these two people would be a great match - one tailored for the male and one for the female.
+
+MEMBER 1 PROFILE (MALE):
+${member1Data}
+
+MEMBER 2 PROFILE (FEMALE):
+${member2Data}
+
+For each explanation, create 5 distinct points about why they are compatible. Each point should have:
+1. A concise, specific header (2-5 words)
+2. A brief explanation (1-2 sentences)
+
+Focus on values, lifestyle compatibility, and specific questionnaire answers that make them a good match.
+Be warm and professional but not overly flowery or fuzzy.
+Make it personal by using their names.
+Be specific about what makes them uniquely compatible.
+For the male explanation, emphasize aspects that would appeal more to him.
+For the female explanation, emphasize aspects that would appeal more to her.
+
+Your response should be in the following JSON format:
+{
+  "member1Explanation": [
+    {
+      "header": "Short, specific header for point 1",
+      "explanation": "Brief explanation of point 1 tailored for the male"
+    },
+    {
+      "header": "Short, specific header for point 2",
+      "explanation": "Brief explanation of point 2 tailored for the male"
+    },
+    {
+      "header": "Short, specific header for point 3",
+      "explanation": "Brief explanation of point 3 tailored for the male"
+    },
+    {
+      "header": "Short, specific header for point 4",
+      "explanation": "Brief explanation of point 4 tailored for the male"
+    },
+    {
+      "header": "Short, specific header for point 5",
+      "explanation": "Brief explanation of point 5 tailored for the male"
+    }
+  ],
+  "member2Explanation": [
+    {
+      "header": "Short, specific header for point 1",
+      "explanation": "Brief explanation of point 1 tailored for the female"
+    },
+    {
+      "header": "Short, specific header for point 2",
+      "explanation": "Brief explanation of point 2 tailored for the female"
+    },
+    {
+      "header": "Short, specific header for point 3",
+      "explanation": "Brief explanation of point 3 tailored for the female"
+    },
+    {
+      "header": "Short, specific header for point 4",
+      "explanation": "Brief explanation of point 4 tailored for the female"
+    },
+    {
+      "header": "Short, specific header for point 5",
+      "explanation": "Brief explanation of point 5 tailored for the female"
+    }
+  ]
+}`;
+}
+
+/**
+ * Legacy function for backward compatibility
  */
 function createMatchExplanationPrompt(member1Data: string, member2Data: string): string {
   return `As an expert matchmaker, create a personalized explanation of why these two people would be a great match based on their profiles and questionnaire answers.
@@ -436,7 +586,7 @@ function createMatchExplanationPrompt(member1Data: string, member2Data: string):
 The explanation should:
 - Be 2-3 paragraphs long (approximately 150-250 words)
 - Highlight specific compatibility points based on their questionnaire answers
-- Focus on shared values, complementary traits, and potential for connection
+- Be warm and engaging
 - Be positive and encouraging, but authentic and specific (not generic)
 - Use natural, conversational language in Australian English
 - Avoid mentioning the specific questions or questionnaire structure

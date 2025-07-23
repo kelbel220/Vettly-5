@@ -197,10 +197,12 @@ export function useProposedMatches() {
             questionnaireAnswers: matchedUserData.questionnaireAnswers || {}
           },
           compatibilityScore: matchData.compatibilityScore || 0,
-          // Include both combined and member-specific explanations
-          compatibilityExplanation: matchData.compatibilityExplanation || '',
-          member1Explanation: matchData.compatibilityExplanation || '', // Use the same explanation for both
-          member2Explanation: matchData.compatibilityExplanation || '', // Use the same explanation for both
+          // Gender-specific explanations
+          member1Explanation: matchData.member1Explanation || matchData.compatibilityExplanation || '', // Male explanation
+          member2Explanation: matchData.member2Explanation || matchData.compatibilityExplanation || '', // Female explanation
+          // Structured explanation points
+          member1Points: matchData.member1Points || null, // Structured points for male
+          member2Points: matchData.member2Points || null, // Structured points for female
           matchingPoints: matchData.matchingPoints || [],
           proposedAt: matchData.approvedAt || notificationData.createdAt,
           status: notificationData.status === 'accepted' ? MatchApprovalStatus.APPROVED : 

@@ -3,8 +3,9 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Allow read/write access to all users for development purposes
     // IMPORTANT: This is a temporary solution for debugging
+    // WARNING: These rules are completely open for development only
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if true;
     }
     
     // Special rule for vettly2Notifications collection

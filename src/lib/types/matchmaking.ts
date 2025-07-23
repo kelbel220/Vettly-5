@@ -85,9 +85,10 @@ export interface ProposedMatch {
     questionnaireAnswers?: Record<string, any>;
   };
   compatibilityScore: number;  // 0-100 whole number percentage
-  compatibilityExplanation: string;
-  member1Explanation?: string;  // Explanation for member 1
-  member2Explanation?: string;  // Explanation for member 2
+  member1Explanation?: string;  // Explanation for member 1 (male)
+  member2Explanation?: string;  // Explanation for member 2 (female)
+  member1Points?: { header: string; explanation: string }[];  // Structured points for member 1
+  member2Points?: { header: string; explanation: string }[];  // Structured points for member 2
   matchingPoints: MatchingPoint[];
   proposedAt: string;  // ISO date string
   status: MatchApprovalStatus;

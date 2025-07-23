@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { OrbField } from '@/app/components/gradients/OrbField';
 import { HomeOrbField } from '@/app/components/gradients/HomeOrbField';
+import { db } from '@/lib/firebase-init';
+import { doc, getDoc } from 'firebase/firestore';
 import { ProposedMatch, MatchApprovalStatus } from '@/lib/types/matchmaking';
 import { useProposedMatches } from '@/hooks/useProposedMatches';
 import Image from 'next/image';
@@ -11,6 +13,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { inter, playfair } from '@/app/fonts';
 import { MdSmokingRooms } from 'react-icons/md';
 import { FaWineGlassAlt, FaChild, FaBabyCarriage } from 'react-icons/fa';
+import MatchExplanation from '@/components/matches/MatchExplanation';
 
 export default function MatchDetailPage() {
   const params = useParams();
@@ -26,6 +29,7 @@ export default function MatchDetailPage() {
   const { matches, loading, acceptMatch, declineMatch } = useProposedMatches();
   const [match, setMatch] = useState<ProposedMatch | null>(null);
   const [imageError, setImageError] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
   
   useEffect(() => {
     if (!loading && matches.length > 0) {
@@ -60,6 +64,104 @@ export default function MatchDetailPage() {
     }
   };
   
+  // Function to regenerate explanation for current match
+  const regenerateExplanation = async () => {
+    if (!match) return;
+    
+    setIsRegenerating(true);
+    console.log('Regenerating explanation for match:', match.id);
+    
+    try {
+      // Get the matched user data from Firebase to ensure we have the correct data
+      const matchRef = doc(db, 'matches', match.id);
+      const matchDoc = await getDoc(matchRef);
+      
+      if (!matchDoc.exists()) {
+        throw new Error('Match not found in Firebase');
+      }
+      
+      const matchData = matchDoc.data();
+      console.log('Match data from Firebase:', matchData);
+      
+      // Determine the member IDs to use
+      let member1Id = matchData.member1Id || match.member1Id;
+      let member2Id = matchData.member2Id || match.member2Id;
+      
+      // If we still don't have member IDs, try to construct them from other fields
+      if (!member1Id || !member2Id) {
+        console.log('Member IDs not found in match data, attempting to construct them');
+        
+        // In Vettly, member1 is male and member2 is female
+        // Try to determine the IDs based on the current user and matched user
+        if (match.currentUserId && match.matchedUserId) {
+          // If we have both IDs, use them (order doesn't matter for the API)
+          member1Id = match.currentUserId;
+          member2Id = match.matchedUserId;
+          console.log('Using currentUserId and matchedUserId as member IDs');
+        }
+      }
+      
+      // Final check to ensure we have both member IDs
+      if (!member1Id || !member2Id) {
+        throw new Error('Could not determine member IDs for this match');
+      }
+      
+      // In Vettly, member1 should be male and member2 should be female
+      // Let's make sure we're sending the IDs in the correct order
+      // This ensures the API generates the correct gender-specific explanations
+      const payload = {
+        matchId: match.id,
+        member1Id, // Male ID
+        member2Id  // Female ID
+      };
+      
+      console.log('Using member IDs:', { member1Id, member2Id });
+      
+      console.log('Request payload:', payload);
+      
+      // Make the API request
+      const response = await fetch('/api/matches/generate-explanation', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      // Handle non-OK responses
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: errorText
+        });
+        throw new Error(`API Error ${response.status}: ${errorText}`);
+      }
+      
+      // Parse the response
+      const data = await response.json();
+      console.log('Explanation regenerated successfully:', data);
+      
+      // Update the match with new explanation data
+      setMatch({
+        ...match,
+        member1Explanation: data.member1Explanation,
+        member2Explanation: data.member2Explanation,
+        member1Points: data.member1Points,
+        member2Points: data.member2Points
+      });
+      
+      alert('Match explanation regenerated successfully!');
+    } catch (error) {
+      console.error('Failed to regenerate explanation:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      alert(`Failed to regenerate explanation: ${errorMessage}`);
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+  
   if (loading || !match) {
     return (
       <div className="h-screen flex items-center justify-center bg-gradient-to-br from-[#0F0C29] via-[#302B63] to-[#24243E]">
@@ -79,7 +181,8 @@ export default function MatchDetailPage() {
   const {
     matchedUserData,
     compatibilityScore,
-    compatibilityExplanation,
+    member1Explanation,
+    member2Explanation,
     proposedAt,
     status,
     matchingPoints
@@ -132,6 +235,86 @@ export default function MatchDetailPage() {
     
   // Format height
   const height = matchedUserData.questionnaireAnswers?.attraction_height || 'Not specified';
+
+  // Helper function to parse match points from explanation string
+  function parseMatchPoints(explanation: string): { header: string; explanation: string }[] {
+    if (!explanation) return [];
+    
+    try {
+      // Check if explanation is already in JSON format
+      if (explanation.trim().startsWith('[') || explanation.trim().startsWith('{')) {
+        const parsed = JSON.parse(explanation);
+        
+        // Handle array format directly
+        if (Array.isArray(parsed)) {
+          return parsed;
+        }
+        
+        // Handle object with member1Explanation/member2Explanation
+        if (parsed.member1Explanation || parsed.member2Explanation) {
+          return parsed.member1Explanation || parsed.member2Explanation || [];
+        }
+        
+        // If it's some other object format, convert to points
+        return Object.entries(parsed).map(([key, value]) => ({
+          header: key,
+          explanation: String(value)
+        }));
+      }
+      
+      // Handle plain text format by creating structured points
+      // First, try to split by paragraphs
+      const paragraphs = explanation
+        .split('\n\n')
+        .filter(p => p.trim().length > 0);
+      
+      if (paragraphs.length > 1) {
+        // Multiple paragraphs - use first sentence of each as header
+        return paragraphs.map(p => {
+          const sentences = p.split(/\.\s+/);
+          return {
+            header: sentences[0].trim().substring(0, 30) + (sentences[0].length > 30 ? '...' : ''),
+            explanation: p.trim()
+          };
+        });
+      }
+      
+      // Try to parse line by line (header: explanation format)
+      const lines = explanation
+        .split('\n')
+        .filter(line => line.trim().length > 0);
+      
+      if (lines.some(line => line.includes(':'))) {
+        return lines
+          .filter(line => line.includes(':'))
+          .map(line => {
+            const [header, ...rest] = line.split(':');
+            return {
+              header: header.trim(),
+              explanation: rest.join(':').trim()
+            };
+          });
+      }
+      
+      // If all else fails, create a single point with the entire explanation
+      return [{
+        header: "Why You're Compatible",
+        explanation: explanation.trim()
+      }];
+    } catch (error) {
+      console.error('Error parsing match points:', error);
+      
+      // Fallback to displaying the raw text as a single point
+      if (typeof explanation === 'string') {
+        return [{
+          header: "Why You're Compatible",
+          explanation: explanation.trim()
+        }];
+      }
+      
+      return [];
+    }
+  }
 
   return (
     <div className="h-screen overflow-auto">
@@ -390,27 +573,24 @@ export default function MatchDetailPage() {
                   <h3 className={`${playfair.className} text-2xl font-medium text-[#73FFF6] mb-4`}>
                     Why you're a great match
                   </h3>
-                  <p className={`${inter.className} text-white/90 text-sm mb-2`}>
-                    {compatibilityExplanation}
-                  </p>
-                
-                  {/* Matching Points */}
-                  {matchingPoints && matchingPoints.length > 0 && (
-                    <div className="mt-4 space-y-3">
-                      {matchingPoints.map((point, index) => (
-                        <div key={index} className="flex items-start">
-                          <div className="mt-1 mr-3 text-[#73FFF6]">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                          <div>
-                            <p className="text-white/90">{point.description}</p>
-                          </div>
-                        </div>
-                      ))}
+                  
+                  {/* Display gender-specific explanation */}
+                  {/* In Vettly, member1 is male and member2 is female */}
+                  {/* Always show member2Points (female explanation) for this user */}
+                  {match && match.member2Points ? (
+                    <MatchExplanation 
+                      matchPoints={match.member2Points} 
+                    />
+                  ) : match && match.member2Explanation ? (
+                    <MatchExplanation 
+                      matchPoints={parseMatchPoints(match.member2Explanation)} 
+                    />
+                  ) : (
+                    <div className="text-white/70 italic text-sm">
+                      Match explanation is being generated...
                     </div>
                   )}
+
                 </div>
               </div>
               
@@ -430,7 +610,7 @@ export default function MatchDetailPage() {
                     </button>
                     <button
                       onClick={handleAcceptMatch}
-                      className="flex-1 md:flex-none px-8 py-3 rounded-lg text-white bg-gradient-to-r from-[#73FFF6] to-[#3B00CC] hover:opacity-90 transition-opacity"
+                      className="flex-1 md:flex-none px-8 py-3 rounded-lg text-white bg-[#3B00CC] hover:opacity-90 transition-opacity"
                     >
                       Accept Match
                     </button>
