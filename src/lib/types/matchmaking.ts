@@ -85,6 +85,7 @@ export interface ProposedMatch {
     questionnaireAnswers?: Record<string, any>;
   };
   compatibilityScore: number;  // 0-100 whole number percentage
+  compatibilityExplanation?: string;  // OpenAI-generated explanation
   member1Explanation?: string;  // Explanation for member 1 (male)
   member2Explanation?: string;  // Explanation for member 2 (female)
   member1Points?: { header: string; explanation: string }[];  // Structured points for member 1
@@ -92,4 +93,18 @@ export interface ProposedMatch {
   matchingPoints: MatchingPoint[];
   proposedAt: string;  // ISO date string
   status: MatchApprovalStatus;
+  // New fields for tracking match acceptance
+  member1Accepted?: boolean;
+  member2Accepted?: boolean;
+  member1AcceptedAt?: string;  // ISO date string
+  member2AcceptedAt?: string;  // ISO date string
+  // New fields for payment and virtual meeting
+  paymentRequired?: boolean;
+  paymentCompleted?: boolean;
+  paymentCompletedAt?: string;  // ISO date string
+  virtualMeetingRequired?: boolean;
+  virtualMeetingScheduled?: boolean;
+  virtualMeetingScheduledAt?: string;  // ISO date string
+  virtualMeetingCompleted?: boolean;
+  virtualMeetingCompletedAt?: string;  // ISO date string
 }

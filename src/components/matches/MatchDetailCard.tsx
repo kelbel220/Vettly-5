@@ -6,11 +6,13 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { ProposedMatch, MatchApprovalStatus } from '@/lib/types/matchmaking';
 import { inter, playfair } from '@/app/fonts';
 import { OrbField } from '@/app/components/gradients/OrbField';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface MatchDetailCardProps {
   match: ProposedMatch;
   onAccept: (matchId: string) => void;
-  onDecline: (matchId: string) => void;
+  onDecline: (matchId: string, reason?: string) => void;
+  onUndoDecline?: (matchId: string) => void; // Optional prop for undoing declined matches
   onClose: () => void;
 }
 
@@ -18,8 +20,22 @@ export const MatchDetailCard: React.FC<MatchDetailCardProps> = ({
   match,
   onAccept,
   onDecline,
+  onUndoDecline,
   onClose
 }) => {
+  // State for showing decline confirmation notification and reason selection
+  const [showDeclineNotification, setShowDeclineNotification] = useState(false);
+  const [showReasonSelection, setShowReasonSelection] = useState(false);
+  const [selectedReason, setSelectedReason] = useState<string>('');
+  const [customReason, setCustomReason] = useState<string>('');
+  
+  // Standard decline reasons
+  const standardReasons = [
+    "Not physically attracted",
+    "Different life goals",
+    "Location too far",
+    "Incompatible values"
+  ];
   const {
     id,
     matchedUserData,
@@ -87,25 +103,26 @@ export const MatchDetailCard: React.FC<MatchDetailCardProps> = ({
     : 'Not specified';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 overflow-hidden">
-      {/* Background overlay with orbs */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0F0C29] via-[#302B63] to-[#24243E] overflow-hidden">
-        <OrbField />
-      </div>
-      
-      {/* Close button */}
-      <button 
-        onClick={onClose}
-        className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-      >
-        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
-      
-      {/* Card container */}
-      <div className="relative w-full max-w-4xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white/10 backdrop-blur-lg shadow-[0_8px_32px_rgb(31,38,135,0.15)] p-6 md:p-8">
-        <div className="flex flex-col md:flex-row gap-8">
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 overflow-hidden">
+        {/* Background overlay with orbs */}
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0F0C29] via-[#302B63] to-[#24243E] overflow-hidden">
+          <OrbField />
+        </div>
+        
+        {/* Close button */}
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+        >
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        
+        {/* Card container */}
+        <div className="relative w-full max-w-4xl max-h-[85vh] overflow-y-auto rounded-2xl bg-white/10 backdrop-blur-lg shadow-[0_8px_32px_rgb(31,38,135,0.15)] p-6 md:p-8">
+          <div className="flex flex-col md:flex-row gap-8">
           {/* Left column - Profile photo and basic info */}
           <div className="w-full md:w-1/3 flex flex-col gap-6">
             {/* Profile Photo */}
@@ -333,7 +350,7 @@ export const MatchDetailCard: React.FC<MatchDetailCardProps> = ({
               {status === MatchApprovalStatus.PENDING && (
                 <div className="flex gap-4 w-full md:w-auto">
                   <button
-                    onClick={() => onDecline(id)}
+                    onClick={() => setShowDeclineNotification(true)}
                     className="flex-1 md:flex-none px-6 py-3 border border-white/20 rounded-lg text-white hover:bg-white/10 transition-colors"
                   >
                     Decline
@@ -354,14 +371,151 @@ export const MatchDetailCard: React.FC<MatchDetailCardProps> = ({
               )}
               
               {status === MatchApprovalStatus.DECLINED && (
-                <div className="bg-red-400/20 text-red-300 px-4 py-2 rounded-full text-sm">
-                  Match Declined
+                <div className="flex items-center gap-3">
+                  <div className="bg-red-400/20 text-red-300 px-4 py-2 rounded-full text-sm">
+                    Match Declined
+                  </div>
+                  {onUndoDecline && (
+                    <button
+                      onClick={() => onUndoDecline(id)}
+                      className="px-4 py-2 border border-white/20 rounded-lg text-white/70 hover:bg-white/10 transition-colors text-sm"
+                    >
+                      Undo (Testing)
+                    </button>
+                  )}
                 </div>
               )}
             </div>
           </div>
+          </div>
         </div>
       </div>
-    </div>
+      
+      {/* Decline Confirmation Notification - Step 1 */}
+      <AnimatePresence>
+        {showDeclineNotification && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          >
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 max-w-md w-full border border-white/10 shadow-xl">
+              <h3 className={`${playfair.className} text-2xl font-normal text-white mb-4`}>
+                Are you sure?
+              </h3>
+              <div className="space-y-4 mb-6">
+                <p className={`${inter.className} text-white/90 mb-2`}>
+                  You only have 3 matches proposed. Once declined, this match won't be proposed again.
+                </p>
+                <p className={`${inter.className} text-white/80 text-sm`}>
+                  Unlike standard dating apps, we've carefully assessed many options and strongly believe this is a good match for you based on compatibility factors.
+                </p>
+              </div>
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={() => setShowDeclineNotification(false)}
+                  className="px-4 py-2 border border-white/20 rounded-lg text-white/70 hover:bg-white/10 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeclineNotification(false);
+                    setShowReasonSelection(true);
+                  }}
+                  className="px-6 py-2 rounded-lg text-white bg-red-500/80 hover:bg-red-500/90 transition-colors"
+                >
+                  Decline Anyway
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Reason Selection - Step 2 */}
+      <AnimatePresence>
+        {showReasonSelection && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          >
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 max-w-md w-full border border-white/10 shadow-xl">
+              <h3 className={`${playfair.className} text-2xl font-normal text-white mb-4`}>
+                Why are you declining this match?
+              </h3>
+              <div className="space-y-4 mb-6">
+                <p className={`${inter.className} text-white/90 mb-4`}>
+                  Your feedback helps us improve future matches.
+                </p>
+                
+                {/* Standard reasons */}
+                <div className="space-y-3">
+                  {standardReasons.map((reason, index) => (
+                    <div 
+                      key={index}
+                      onClick={() => setSelectedReason(reason)}
+                      className={`p-3 rounded-lg cursor-pointer transition-colors ${selectedReason === reason ? 'bg-white/20 border border-white/30' : 'bg-white/5 hover:bg-white/10 border border-white/10'}`}
+                    >
+                      <p className="text-white">{reason}</p>
+                    </div>
+                  ))}
+                  
+                  {/* Custom reason option */}
+                  <div 
+                    className={`p-3 rounded-lg transition-colors ${selectedReason === 'other' ? 'bg-white/20 border border-white/30' : 'bg-white/5 hover:bg-white/10 border border-white/10'}`}
+                  >
+                    <div 
+                      onClick={() => setSelectedReason('other')}
+                      className="flex items-center cursor-pointer"
+                    >
+                      <p className="text-white">Other reason</p>
+                    </div>
+                    
+                    {selectedReason === 'other' && (
+                      <textarea
+                        value={customReason}
+                        onChange={(e) => setCustomReason(e.target.value)}
+                        placeholder="Please specify..."
+                        className="mt-2 w-full bg-white/10 border border-white/20 rounded-md p-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
+                        rows={3}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={() => {
+                    setShowReasonSelection(false);
+                    setShowDeclineNotification(true);
+                  }}
+                  className="px-4 py-2 border border-white/20 rounded-lg text-white/70 hover:bg-white/10 transition-colors"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={() => {
+                    const finalReason = selectedReason === 'other' ? customReason : selectedReason;
+                    onDecline(id, finalReason);
+                    setShowReasonSelection(false);
+                  }}
+                  className="px-6 py-2 rounded-lg text-white bg-red-500/80 hover:bg-red-500/90 transition-colors"
+                  disabled={!selectedReason || (selectedReason === 'other' && !customReason.trim())}
+                >
+                  Submit
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 };

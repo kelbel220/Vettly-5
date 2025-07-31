@@ -4,6 +4,12 @@ import { db } from '@/lib/firebase-init';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { logExplanationGeneration, logExplanationError } from '@/lib/monitoring/explanationMonitoring';
 
+// Define types for match explanation points
+type MatchPoint = {
+  header: string;
+  explanation: string;
+};
+
 // OpenAI API configuration
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 
@@ -157,30 +163,201 @@ export async function POST(request: Request) {
       // Parse the response to extract gender-specific explanations
       let member1Explanation = '';
       let member2Explanation = '';
-      let member1Points = [];
-      let member2Points = [];
+      let member1Points: MatchPoint[] = [];
+      let member2Points: MatchPoint[] = [];
       
       try {
         // Try to parse the response as JSON
-        const parsedContent = JSON.parse(contentText);
+        console.log('Raw OpenAI response text:', contentText);
         
-        if (parsedContent.member1Explanation && parsedContent.member2Explanation) {
-          // If we got the expected format with both explanations
-          member1Points = parsedContent.member1Explanation;
-          member2Points = parsedContent.member2Explanation;
-          member1Explanation = JSON.stringify(parsedContent.member1Explanation);
-          member2Explanation = JSON.stringify(parsedContent.member2Explanation);
-          console.log('Successfully parsed gender-specific explanations');
-        } else {
-          // Fallback if we don't get the expected format
-          console.warn('Response did not contain both member1Explanation and member2Explanation');
-          member1Explanation = contentText;
-          member2Explanation = contentText;
-          
-          // Create fallback points
-          member1Points = [{ header: "Why You're Compatible", explanation: contentText }];
-          member2Points = [{ header: "Why You're Compatible", explanation: contentText }];
+        // Sometimes OpenAI returns JSON with additional text before or after
+        // Let's try to extract just the JSON part
+        let jsonContent = contentText;
+        
+        // Try to find JSON content between curly braces
+        const jsonMatch = contentText.match(/\{[\s\S]*\}/); 
+        if (jsonMatch) {
+          jsonContent = jsonMatch[0];
+          console.log('Extracted JSON content from response');
         }
+        
+        // Parse the JSON content
+        let parsedContent;
+        try {
+          parsedContent = JSON.parse(jsonContent);
+          console.log('Successfully parsed JSON response');
+        } catch (jsonError) {
+          console.error('Error parsing JSON response:', jsonError);
+          console.log('Attempting to fix malformed JSON...');
+          
+          // Try multiple approaches to fix JSON
+          let fixedJson = jsonContent;
+          
+          // 1. Replace single quotes with double quotes
+          fixedJson = fixedJson.replace(/'/g, '"');
+          
+          // 2. Remove newlines
+          fixedJson = fixedJson.replace(/\n/g, ' ');
+          
+          // 3. Fix trailing commas
+          fixedJson = fixedJson.replace(/,\s*}/g, '}').replace(/,\s*\]/g, ']');
+          
+          // 4. Try to fix unescaped quotes in strings
+          fixedJson = fixedJson.replace(/"([^"]*?)(?<!\\)"([^"]*?)"/g, '"$1\\"$2"');
+          
+          try {
+            parsedContent = JSON.parse(fixedJson);
+            console.log('Successfully parsed fixed JSON');
+          } catch (fixError) {
+            console.error('Failed to fix JSON with standard fixes:', fixError);
+            
+            // Last resort: try to extract the arrays directly using regex
+            try {
+              console.log('Attempting to extract arrays directly with regex...');
+              const member1Match = jsonContent.match(/"member1Explanation"\s*:\s*(\[[\s\S]*?\])/);
+              const member2Match = jsonContent.match(/"member2Explanation"\s*:\s*(\[[\s\S]*?\])/);
+              
+              if (member1Match && member2Match) {
+                const member1Json = member1Match[1].replace(/'/g, '"').replace(/,\s*\]/g, ']');
+                const member2Json = member2Match[1].replace(/'/g, '"').replace(/,\s*\]/g, ']');
+                
+                try {
+                  parsedContent = {
+                    member1Explanation: JSON.parse(member1Json),
+                    member2Explanation: JSON.parse(member2Json)
+                  };
+                  console.log('Successfully extracted arrays with regex');
+                } catch (regexError) {
+                  console.error('Failed to parse extracted arrays:', regexError);
+                  throw new Error('Could not parse OpenAI response as JSON');
+                }
+              } else {
+                throw new Error('Could not extract arrays from OpenAI response');
+              }
+            } catch (regexError) {
+              console.error('Failed to extract with regex:', regexError);
+              throw new Error('Could not parse OpenAI response as JSON');
+            }
+          }
+        }
+        
+        console.log('Parsed OpenAI response:', JSON.stringify(parsedContent, null, 2));
+        
+        // Initialize points arrays
+        member1Points = [];
+        member2Points = [];
+        
+        // Process member1Explanation
+        if (parsedContent.member1Explanation) {
+          if (Array.isArray(parsedContent.member1Explanation)) {
+            console.log('member1Explanation is an array with', parsedContent.member1Explanation.length, 'items');
+            member1Points = parsedContent.member1Explanation as MatchPoint[];
+          } else if (typeof parsedContent.member1Explanation === 'string') {
+            // Try to parse it as JSON if it's a string
+            console.log('member1Explanation is a string, attempting to parse as JSON');
+            try {
+              const parsedPoints = JSON.parse(parsedContent.member1Explanation);
+              if (Array.isArray(parsedPoints)) {
+                member1Points = parsedPoints;
+              }
+            } catch (e) {
+              console.warn('Failed to parse member1Explanation string as JSON');
+            }
+          } else {
+            console.warn('member1Explanation is not an array or string, type:', typeof parsedContent.member1Explanation);
+          }
+        } else {
+          console.warn('No member1Explanation found in response');
+        }
+        
+        // Process member2Explanation
+        if (parsedContent.member2Explanation) {
+          if (Array.isArray(parsedContent.member2Explanation)) {
+            console.log('member2Explanation is an array with', parsedContent.member2Explanation.length, 'items');
+            member2Points = parsedContent.member2Explanation as MatchPoint[];
+          } else if (typeof parsedContent.member2Explanation === 'string') {
+            // Try to parse it as JSON if it's a string
+            console.log('member2Explanation is a string, attempting to parse as JSON');
+            try {
+              const parsedPoints = JSON.parse(parsedContent.member2Explanation);
+              if (Array.isArray(parsedPoints)) {
+                member2Points = parsedPoints;
+              }
+            } catch (e) {
+              console.warn('Failed to parse member2Explanation string as JSON');
+            }
+          } else {
+            console.warn('member2Explanation is not an array or string, type:', typeof parsedContent.member2Explanation);
+          }
+        } else {
+          console.warn('No member2Explanation found in response');
+        }
+        
+        // We don't need to store the raw explanations anymore
+        member1Explanation = '';
+        member2Explanation = '';
+        
+        console.log('Member1Points before validation:', JSON.stringify(member1Points));
+        console.log('Member2Points before validation:', JSON.stringify(member2Points));
+        
+        // Validate and clean up the points arrays
+        // For member1Points
+        if (Array.isArray(member1Points)) {
+          // Make sure we have exactly 5 points with header and explanation
+          member1Points = member1Points
+            .filter((point: MatchPoint | any) => (
+              point && 
+              typeof point === 'object' && 
+              typeof point.header === 'string' && 
+              typeof point.explanation === 'string' && 
+              point.header.trim() !== '' && 
+              point.explanation.trim() !== ''
+            ))
+            .slice(0, 5) // Limit to 5 points
+            .map((point: any) => ({
+              header: point.header.trim(),
+              explanation: point.explanation.trim()
+            }));
+          
+          // If we don't have 5 points, log a warning
+          if (member1Points.length < 5) {
+            console.warn(`Only got ${member1Points.length} valid points for member1, expected 5`);
+          }
+        } else {
+          console.warn('member1Points is not an array, creating empty array');
+          member1Points = [];
+        }
+        
+        // For member2Points
+        if (Array.isArray(member2Points)) {
+          // Make sure we have exactly 5 points with header and explanation
+          member2Points = member2Points
+            .filter((point: MatchPoint | any) => (
+              point && 
+              typeof point === 'object' && 
+              typeof point.header === 'string' && 
+              typeof point.explanation === 'string' && 
+              point.header.trim() !== '' && 
+              point.explanation.trim() !== ''
+            ))
+            .slice(0, 5) // Limit to 5 points
+            .map((point: any) => ({
+              header: point.header.trim(),
+              explanation: point.explanation.trim()
+            }));
+          
+          // If we don't have 5 points, log a warning
+          if (member2Points.length < 5) {
+            console.warn(`Only got ${member2Points.length} valid points for member2, expected 5`);
+          }
+        } else {
+          console.warn('member2Points is not an array, creating empty array');
+          member2Points = [];
+        }
+          
+          console.log('Member1Points structured as:', JSON.stringify(member1Points));
+          console.log('Member2Points structured as:', JSON.stringify(member2Points));
+          console.log('Successfully parsed gender-specific explanations');
       } catch (parseError) {
         // If parsing fails, use the raw content as a fallback
         console.warn('Failed to parse OpenAI response as JSON:', parseError);
@@ -188,27 +365,54 @@ export async function POST(request: Request) {
         member2Explanation = contentText;
         
         // Create fallback points
-        member1Points = [{ header: "Why You're Compatible", explanation: contentText }];
-        member2Points = [{ header: "Why You're Compatible", explanation: contentText }];
+        member1Points = [{ header: "Why You're Compatible", explanation: contentText }] as MatchPoint[];
+        member2Points = [{ header: "Why You're Compatible", explanation: contentText }] as MatchPoint[];
       }
       
       // Update the match document with the generated explanations
       try {
         const matchRef = doc(db, 'matches', matchId);
+        // Log the final points before saving to Firebase
+        console.log(`Final member1Points: ${member1Points.length} valid points`);
+        console.log('member1Points structure:', JSON.stringify(member1Points, null, 2));
+        console.log(`Final member2Points: ${member2Points.length} valid points`);
+        console.log('member2Points structure:', JSON.stringify(member2Points, null, 2));
+        
+        // Ensure we're storing structured arrays, not strings
+        console.log('Final member1Points type:', typeof member1Points);
+        console.log('Final member2Points type:', typeof member2Points);
+        
+        // Convert to plain objects if they're not already
+        const serializedMember1Points = member1Points.map(point => ({
+          header: point.header,
+          explanation: point.explanation
+        }));
+        
+        const serializedMember2Points = member2Points.map(point => ({
+          header: point.header,
+          explanation: point.explanation
+        }));
+        
+        console.log('Serialized member1Points:', JSON.stringify(serializedMember1Points));
+        console.log('Serialized member2Points:', JSON.stringify(serializedMember2Points));
+        
+        // Update Firebase with the validated points
         await updateDoc(matchRef, {
-          // Remove the generic compatibility explanation
+          // Clear old fields
           compatibilityExplanation: null,
-          // Add gender-specific explanations as strings
-          member1Explanation,
-          member2Explanation,
-          // Add gender-specific explanations as structured points
-          member1Points,
-          member2Points,
+          member1Explanation: null,
+          member2Explanation: null,
+          
+          // Add the validated points as structured arrays
+          member1Points: serializedMember1Points,
+          member2Points: serializedMember2Points,
+          
+          // Add timestamp and metrics
           explanationGeneratedAt: new Date().toISOString(),
           explanationMetrics: {
             tokensUsed,
             generationTimeMs,
-            dataQualityScore,
+            dataQualityScore: dataQualityScore || 0,
             model: 'gpt-4-turbo'
           }
         });
@@ -507,9 +711,10 @@ function formatUserDataForPrompt(userData: any): string {
 
 /**
  * Create a prompt for OpenAI to generate gender-specific match explanations
+ * with exactly 5 structured points for each member
  */
 function createGenderSpecificExplanationPrompt(member1Data: string, member2Data: string): string {
-  return `As an expert matchmaker, create TWO separate personalized explanations of why these two people would be a great match - one tailored for the male and one for the female.
+  return `You are a matchmaking expert for a dating app called Vettly. You need to generate personalized explanations for why two people are a great match.
 
 MEMBER 1 PROFILE (MALE):
 ${member1Data}
@@ -517,64 +722,39 @@ ${member1Data}
 MEMBER 2 PROFILE (FEMALE):
 ${member2Data}
 
-For each explanation, create 5 distinct points about why they are compatible. Each point should have:
-1. A concise, specific header (2-5 words)
-2. A brief explanation (1-2 sentences)
+Based on the information provided, generate two separate explanations:
+1. An explanation for Member 1 (male) about why they are a great match with Member 2 (female)
+2. An explanation for Member 2 (female) about why they are a great match with Member 1 (male)
 
-Focus on values, lifestyle compatibility, and specific questionnaire answers that make them a good match.
-Be warm and professional but not overly flowery or fuzzy.
-Make it personal by using their names.
-Be specific about what makes them uniquely compatible.
-For the male explanation, emphasize aspects that would appeal more to him.
-For the female explanation, emphasize aspects that would appeal more to her.
+IMPORTANT REQUIREMENTS:
+- You MUST provide EXACTLY 5 distinct explanation points for each member
+- Each point must have a concise header (3-7 words) and a detailed explanation (20-50 words)
+- Points must be specific to the individuals, not generic dating advice
+- Focus on compatibility factors, shared interests, complementary traits, and potential for a successful relationship
+- Ensure each point is unique and highlights a different aspect of compatibility
+- Use gender-appropriate language (he/him for Member 1, she/her for Member 2)
+- Make it personal by using their names if available
+- Be specific about what makes them uniquely compatible
 
-Your response should be in the following JSON format:
+Format your response as a JSON object with the following structure:
 {
   "member1Explanation": [
-    {
-      "header": "Short, specific header for point 1",
-      "explanation": "Brief explanation of point 1 tailored for the male"
-    },
-    {
-      "header": "Short, specific header for point 2",
-      "explanation": "Brief explanation of point 2 tailored for the male"
-    },
-    {
-      "header": "Short, specific header for point 3",
-      "explanation": "Brief explanation of point 3 tailored for the male"
-    },
-    {
-      "header": "Short, specific header for point 4",
-      "explanation": "Brief explanation of point 4 tailored for the male"
-    },
-    {
-      "header": "Short, specific header for point 5",
-      "explanation": "Brief explanation of point 5 tailored for the male"
-    }
+    { "header": "Point 1 Header", "explanation": "Point 1 detailed explanation" },
+    { "header": "Point 2 Header", "explanation": "Point 2 detailed explanation" },
+    { "header": "Point 3 Header", "explanation": "Point 3 detailed explanation" },
+    { "header": "Point 4 Header", "explanation": "Point 4 detailed explanation" },
+    { "header": "Point 5 Header", "explanation": "Point 5 detailed explanation" }
   ],
   "member2Explanation": [
-    {
-      "header": "Short, specific header for point 1",
-      "explanation": "Brief explanation of point 1 tailored for the female"
-    },
-    {
-      "header": "Short, specific header for point 2",
-      "explanation": "Brief explanation of point 2 tailored for the female"
-    },
-    {
-      "header": "Short, specific header for point 3",
-      "explanation": "Brief explanation of point 3 tailored for the female"
-    },
-    {
-      "header": "Short, specific header for point 4",
-      "explanation": "Brief explanation of point 4 tailored for the female"
-    },
-    {
-      "header": "Short, specific header for point 5",
-      "explanation": "Brief explanation of point 5 tailored for the female"
-    }
+    { "header": "Point 1 Header", "explanation": "Point 1 detailed explanation" },
+    { "header": "Point 2 Header", "explanation": "Point 2 detailed explanation" },
+    { "header": "Point 3 Header", "explanation": "Point 3 detailed explanation" },
+    { "header": "Point 4 Header", "explanation": "Point 4 detailed explanation" },
+    { "header": "Point 5 Header", "explanation": "Point 5 detailed explanation" }
   ]
-}`;
+}
+
+IMPORTANT: Your response MUST be valid JSON that can be parsed directly. Do not include any text before or after the JSON object. Ensure all quotes are properly escaped within strings.`;
 }
 
 /**

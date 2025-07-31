@@ -37,10 +37,11 @@ const WeeklyTipCategory = {
 /**
  * Scheduled job that runs every Monday at 1 AM to generate a new weekly tip
  */
-exports.generateWeeklyTip = functions.pubsub
-  .schedule('0 1 * * 1') // Every Monday at 1 AM
-  .timeZone('Australia/Sydney') // Adjust to your preferred timezone
-  .onRun(async (context) => {
+exports.generateWeeklyTip = functions.scheduler
+  .onSchedule({
+    schedule: '0 1 * * 1', // Every Monday at 1 AM
+    timeZone: 'Australia/Sydney' // Adjust to your preferred timezone
+  }, async (event) => {
     try {
       console.log('Starting weekly tip generation job');
       

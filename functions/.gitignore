@@ -1,2 +1,9 @@
 node_modules/
 *.local
+
+# Google Cloud service account keys
+service-account-key.json
+*.json.key
+
+# Firebase config
+.runtimeconfig.json

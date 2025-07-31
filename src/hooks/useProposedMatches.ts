@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase-init';
 import { useAuth } from '@/context/AuthContext';
 import { ProposedMatch, MatchApprovalStatus, MatchingPoint } from '@/lib/types/matchmaking';
+import { notifyMatchmakerOfDeclinedMatch, notifyMatchmakerOfAcceptedMatch } from '@/lib/services/matchmakerNotificationService';
+import { trackDeclinedMatch } from '@/lib/services/declineAnalyticsService';
 
 // Collection name for Vettly 2 notifications
 const VETTLY2_NOTIFICATIONS_COLLECTION = 'vettly2Notifications';
@@ -245,18 +247,91 @@ export function useProposedMatches() {
 
     try {
       const matchRef = doc(db, 'matches', matchId);
-      await updateDoc(matchRef, {
-        status: MatchApprovalStatus.APPROVED,
-        approvedAt: new Date().toISOString()
-      });
+      const matchDoc = await getDoc(matchRef);
+      
+      if (!matchDoc.exists()) {
+        throw new Error('Match not found');
+      }
+      
+      const matchData = matchDoc.data();
+      const isMember1 = matchData.member1Id === currentUser.uid;
+      const isMember2 = matchData.member2Id === currentUser.uid;
+      
+      if (!isMember1 && !isMember2) {
+        throw new Error('Current user is not part of this match');
+      }
+      
+      // Determine which member is accepting the match
+      const updateData: any = {};
+      
+      if (isMember1) {
+        updateData.member1Accepted = true;
+        updateData.member1AcceptedAt = new Date().toISOString();
+      } else {
+        updateData.member2Accepted = true;
+        updateData.member2AcceptedAt = new Date().toISOString();
+      }
+      
+      // Check if both members have accepted
+      const bothAccepted = 
+        (isMember1 && matchData.member2Accepted) || 
+        (isMember2 && matchData.member1Accepted);
+      
+      if (bothAccepted) {
+        updateData.status = MatchApprovalStatus.APPROVED;
+        updateData.approvedAt = new Date().toISOString();
+        updateData.paymentRequired = true;
+        updateData.virtualMeetingRequired = true;
+      }
+      
+      await updateDoc(matchRef, updateData);
+      
+      // If both members accepted, notify the matchmaker
+      if (bothAccepted && matchData.matchmakerId) {
+        // Get user data to include name in notification
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        let memberName = '';
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          memberName = userData.displayName || `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+        }
+        
+        try {
+          await notifyMatchmakerOfAcceptedMatch(
+            matchId,
+            currentUser.uid,
+            matchData.matchmakerId,
+            memberName || undefined
+          );
+        } catch (notificationError) {
+          console.error('Error sending matchmaker notification:', notificationError);
+        }
+      }
 
       // Update local state
       setMatches(prev => 
-        prev.map(match => 
-          match.id === matchId 
-            ? { ...match, status: MatchApprovalStatus.APPROVED } 
-            : match
-        )
+        prev.map(match => {
+          if (match.id === matchId) {
+            const updatedMatch = { ...match };
+            
+            if (isMember1) {
+              updatedMatch.member1Accepted = true;
+            } else {
+              updatedMatch.member2Accepted = true;
+            }
+            
+            if (bothAccepted) {
+              updatedMatch.status = MatchApprovalStatus.APPROVED;
+              updatedMatch.paymentRequired = true;
+              updatedMatch.virtualMeetingRequired = true;
+            }
+            
+            return updatedMatch;
+          }
+          return match;
+        })
       );
     } catch (err) {
       console.error('Error accepting match:', err);
@@ -265,14 +340,41 @@ export function useProposedMatches() {
   };
 
   // Decline a match
-  const declineMatch = async (matchId: string) => {
+  const declineMatch = async (matchId: string, reason?: string) => {
     if (!currentUser) return;
 
     try {
+      // Get the match data first to access matchmakerId
       const matchRef = doc(db, 'matches', matchId);
+      const matchDoc = await getDoc(matchRef);
+      
+      if (!matchDoc.exists()) {
+        throw new Error(`Match with ID ${matchId} not found`);
+      }
+      
+      const matchData = matchDoc.data();
+      
+      // Update match status to DECLINED with member info
       await updateDoc(matchRef, {
-        status: MatchApprovalStatus.DECLINED
+        status: MatchApprovalStatus.DECLINED,
+        declinedAt: new Date().toISOString(),
+        declineReason: reason || 'No reason provided',
+        declinedBy: {
+          memberId: currentUser.uid,
+          memberName: currentUser.displayName || 'Unknown Member'
+        }
       });
+      
+      // Update the member's currentStage to match_declined in Firestore
+      try {
+        const userRef = doc(db, 'users', currentUser.uid);
+        await updateDoc(userRef, {
+          currentStage: 'match_declined'
+        });
+        console.log(`Updated member ${currentUser.uid} currentStage to 'match_declined'`);
+      } catch (updateStageError) {
+        console.error('Error updating member currentStage:', updateStageError);
+      }
 
       // Update local state
       setMatches(prev => 
@@ -282,6 +384,117 @@ export function useProposedMatches() {
             : match
         )
       );
+      
+      // Find the match in our local state to get more details
+      const matchDetails = matches.find(match => match.id === matchId);
+      
+      // Determine the other member's ID
+      const otherMemberId = currentUser.uid === matchData.member1Id 
+        ? matchData.member2Id 
+        : matchData.member1Id;
+      
+      // Get user data for the current user (who declined)
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      let declinerName = '';
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        declinerName = userData.displayName || `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+      }
+      
+      // Create notification document for the other member
+      try {
+        // Get other member's data for a more personalized notification
+        const otherMemberRef = doc(db, 'users', otherMemberId);
+        const otherMemberDoc = await getDoc(otherMemberRef);
+        let otherMemberName = '';
+        let otherMemberPhotoUrl = '';
+        
+        if (otherMemberDoc.exists()) {
+          const otherMemberData = otherMemberDoc.data();
+          otherMemberName = otherMemberData.displayName || 
+            `${otherMemberData.firstName || ''} ${otherMemberData.lastName || ''}`.trim();
+          otherMemberPhotoUrl = otherMemberData.profilePhotoUrl || '';
+        }
+        
+        await addDoc(collection(db, VETTLY2_NOTIFICATIONS_COLLECTION), {
+          memberId: otherMemberId,
+          matchId: matchId,
+          matchData: {
+            otherMemberId: currentUser.uid,
+            otherMemberName: declinerName || 'A member',
+            otherMemberPhotoUrl: userDoc.exists() ? userDoc.data().profilePhotoUrl : undefined,
+            compatibilityScore: matchData.compatibilityScore || 0,
+            matchingPoints: matchData.matchingPoints || [],
+            approvedAt: matchData.createdAt || new Date().toISOString(),
+            matchmakerId: matchData.matchmakerId || '',
+            matchmakerName: matchData.matchmakerName || ''
+          },
+          status: 'pending',
+          createdAt: new Date().toISOString(),
+          type: 'match_declined',
+          message: `This match was declined by the other member. Your matchmaker will continue looking for better matches for you.`
+        });
+        
+        console.log(`Notification sent to other member ${otherMemberId} for declined match ${matchId}`);
+      } catch (notificationError) {
+        console.error('Error sending notification to other member:', notificationError);
+        // Don't throw error to prevent disrupting the main flow
+      }
+      
+      // Notify the matchmaker about the declined match
+      console.log('Match data for debugging:', matchData);
+      console.log('Checking for matchmakerId:', matchData.matchmakerId);
+      
+      if (matchData.matchmakerId) {
+        // Get user data to include name in notification
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
+        let memberName = '';
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          memberName = userData.displayName || `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+          console.log('Member name for notification:', memberName);
+        } else {
+          console.log('User document not found for:', currentUser.uid);
+        }
+        
+        try {
+          console.log('Sending notification with params:', {
+            matchId,
+            memberId: currentUser.uid,
+            matchmakerId: matchData.matchmakerId,
+            memberName: memberName || undefined,
+            reason
+          });
+          
+          await notifyMatchmakerOfDeclinedMatch(
+            matchId,
+            currentUser.uid,
+            matchData.matchmakerId,
+            memberName || undefined,
+            reason
+          );
+          console.log(`Notification sent to matchmaker ${matchData.matchmakerId} for declined match ${matchId}`);
+        } catch (notificationError) {
+          console.error('Error sending matchmaker notification:', notificationError);
+        }
+        
+        // Track decline for analytics
+        try {
+          await trackDeclinedMatch(
+            currentUser.uid,
+            memberName || undefined
+          );
+          console.log(`Decline analytics updated for member ${currentUser.uid}`);
+        } catch (analyticsError) {
+          console.error('Error updating decline analytics:', analyticsError);
+        }
+      } else {
+        console.error('No matchmaker ID found for this match, skipping notification. Match data:', matchData);
+      }
     } catch (err) {
       console.error('Error declining match:', err);
       setError('Failed to decline match. Please try again.');
@@ -293,12 +506,49 @@ export function useProposedMatches() {
     fetchMatches();
   }, [currentUser]);
 
+  // Undo a declined match (for testing purposes)
+  const undoDeclineMatch = async (matchId: string) => {
+    if (!currentUser) return;
+
+    try {
+      const matchRef = doc(db, 'matches', matchId);
+      const matchDoc = await getDoc(matchRef);
+      if (!matchDoc.exists()) throw new Error('Match not found');
+      
+      // Update match status back to PENDING
+      await updateDoc(matchRef, {
+        status: MatchApprovalStatus.PENDING,
+        declinedAt: null,
+        declineReason: null,
+        declinedBy: null,
+        hasMatchmakerNotification: false,
+        lastNotificationType: null,
+        lastNotificationTime: null
+      });
+
+      // Update local state
+      setMatches(prev => 
+        prev.map(match => 
+          match.id === matchId 
+            ? { ...match, status: MatchApprovalStatus.PENDING } 
+            : match
+        )
+      );
+
+      console.log(`Match ${matchId} has been restored to PENDING status`);
+    } catch (err) {
+      console.error('Error undoing declined match:', err);
+      setError('Failed to undo decline. Please try again.');
+    }
+  };
+
   return {
     matches,
     loading,
     error,
     fetchMatches,
     acceptMatch,
-    declineMatch
+    declineMatch,
+    undoDeclineMatch // Add the undo function to the return object
   };
 }

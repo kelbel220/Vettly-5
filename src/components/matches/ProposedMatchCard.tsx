@@ -9,13 +9,15 @@ import { inter, playfair } from '@/app/fonts';
 interface ProposedMatchCardProps {
   match: ProposedMatch;
   onAccept: (matchId: string) => void;
-  onDecline: (matchId: string) => void;
+  onDecline: (matchId: string, reason?: string) => void;
+  onUndoDecline?: (matchId: string) => void;
 }
 
 export const ProposedMatchCard: React.FC<ProposedMatchCardProps> = ({
   match,
   onAccept,
-  onDecline
+  onDecline,
+  onUndoDecline
 }) => {
   const {
     id,
@@ -53,8 +55,25 @@ export const ProposedMatchCard: React.FC<ProposedMatchCardProps> = ({
   // Format education level
   const educationLevel = matchedUserData.educationLevel || '';
   
-  // Handle image error
+  // Handle image error and photo URL
   const [imageError, setImageError] = React.useState(false);
+  
+  // Extract photo URL from various possible locations in the data structure
+  const photoUrl = React.useMemo(() => {
+    return matchedUserData.profilePhotoUrl || 
+           (matchedUserData.questionnaireAnswers?.personal_profilePhoto) ||
+           null;
+  }, [matchedUserData]);
+  
+  // Debug photo URL
+  React.useEffect(() => {
+    console.log('ProposedMatchCard - Photo URL:', {
+      matchId: id,
+      photoUrl,
+      profilePhotoUrl: matchedUserData.profilePhotoUrl,
+      questionnaireAnswers: matchedUserData.questionnaireAnswers
+    });
+  }, [id, photoUrl, matchedUserData]);
   
   return (
     <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 transition-all duration-300 hover:bg-white/20">
@@ -62,14 +81,17 @@ export const ProposedMatchCard: React.FC<ProposedMatchCardProps> = ({
         {/* Profile Photo */}
         <div className="w-full md:w-1/3 flex-shrink-0">
           <div className="relative w-full aspect-square rounded-xl overflow-hidden">
-            {!imageError && matchedUserData.profilePhotoUrl ? (
+            {!imageError && photoUrl ? (
               <Image
-                src={matchedUserData.profilePhotoUrl}
+                src={photoUrl}
                 alt={`${matchedUserData.firstName}'s profile`}
                 fill
                 sizes="(max-width: 768px) 100vw, 33vw"
                 className="object-cover"
-                onError={() => setImageError(true)}
+                onError={() => {
+                  console.log('Image error occurred with URL:', photoUrl);
+                  setImageError(true);
+                }}
                 priority
               />
             ) : (

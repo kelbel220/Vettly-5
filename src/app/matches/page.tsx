@@ -9,13 +9,21 @@ import { useMatchNotifications } from '@/hooks/useMatchNotifications';
 import { useAuth } from '@/context/AuthContext'; // Import useAuth hook
 import Image from 'next/image';
 import Link from 'next/link';
+import MatchPaymentModal from '@/components/matches/MatchPaymentModal';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase-init';
+import { sendCalendarBookingEmail, sendPaymentConfirmationEmail } from '@/lib/services/emailService';
 
 export default function MatchesPage() {
-  const { matches, loading: matchesLoading, error: matchesError, acceptMatch, declineMatch } = useProposedMatches();
+  const { matches, loading: matchesLoading, error: matchesError, acceptMatch, declineMatch, undoDeclineMatch } = useProposedMatches();
   const { notifications, loading: notificationsLoading, error: notificationsError, markAsViewed } = useMatchNotifications();
   const { currentUser } = useAuth(); // Extract currentUser from useAuth hook
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<{ type: 'accept' | 'decline', matchId: string } | null>(null);
+  
+  // State for payment modal
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [currentPaymentMatchId, setCurrentPaymentMatchId] = useState<string | null>(null);
   
   // State for success messages
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -30,6 +38,93 @@ export default function MatchesPage() {
       console.log('Received notifications:', notifications);
     }
   }, [notifications]);
+  
+  // Check for matches requiring payment
+  useEffect(() => {
+    if (matches.length > 0 && currentUser) {
+      const matchRequiringPayment = matches.find(match => 
+        match.status === 'approved' && 
+        match.paymentRequired && 
+        !match.paymentCompleted
+      );
+      
+      if (matchRequiringPayment) {
+        setCurrentPaymentMatchId(matchRequiringPayment.id);
+        setShowPaymentModal(true);
+      }
+    }
+  }, [matches, currentUser]);
+  
+  // Handle payment completion
+  const handlePaymentSuccess = async () => {
+    if (!currentUser || !currentPaymentMatchId) return;
+    
+    try {
+      // Get the match data
+      const matchRef = doc(db, 'matches', currentPaymentMatchId);
+      const matchDoc = await getDoc(matchRef);
+      
+      if (!matchDoc.exists()) {
+        throw new Error('Match not found');
+      }
+      
+      const matchData = matchDoc.data();
+      
+      // Get user data for email
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        const email = userData.email;
+        const memberName = userData.displayName || `${userData.firstName || ''} ${userData.lastName || ''}`.trim();
+        
+        // Send payment confirmation email
+        await sendPaymentConfirmationEmail(
+          email,
+          memberName,
+          currentPaymentMatchId,
+          currentUser.uid
+        );
+        
+        // Send calendar booking email
+        await sendCalendarBookingEmail(
+          email,
+          memberName,
+          currentPaymentMatchId,
+          currentUser.uid
+        );
+        
+        // Trigger virtual meeting creation
+        try {
+          // Import dynamically to avoid SSR issues
+          const { createVirtualMeeting } = await import('@/lib/services/calendarService');
+          await createVirtualMeeting(currentPaymentMatchId);
+          console.log('Virtual meeting creation initiated for match:', currentPaymentMatchId);
+        } catch (meetingError) {
+          console.error('Error creating virtual meeting:', meetingError);
+          // Don't block the main flow if meeting creation fails
+        }
+        
+        setSuccessMessage(
+          'Thank you! You will receive an email shortly with a link to book your virtual meeting. ' +
+          'Once you have been verified, your match will be approved. ' +
+          'You only need to complete this verification once.'
+        );
+        
+        // Close the payment modal
+        setShowPaymentModal(false);
+        setCurrentPaymentMatchId(null);
+        
+        // Clear success message after 5 seconds
+        setTimeout(() => {
+          setSuccessMessage(null);
+        }, 5000);
+      }
+    } catch (err) {
+      console.error('Error handling payment success:', err);
+    }
+  };
   
   // Handle viewing a notification
   const handleViewNotification = async (notificationId: string) => {
@@ -53,9 +148,12 @@ export default function MatchesPage() {
   };
 
   // Handle match decline
-  const handleDeclineMatch = (matchId: string) => {
-    setPendingAction({ type: 'decline', matchId });
-    setShowConfirmModal(true);
+  const handleDeclineMatch = (matchId: string, reason?: string) => {
+    // We don't need to show the confirmation modal anymore since it's handled in MatchDetailCard
+    if (reason) {
+      // If reason is provided, it means the user has already gone through the two-step process
+      declineMatch(matchId, reason);
+    }
   };
 
   // Confirm action
@@ -64,9 +162,8 @@ export default function MatchesPage() {
 
     if (pendingAction.type === 'accept') {
       await acceptMatch(pendingAction.matchId);
-    } else {
-      await declineMatch(pendingAction.matchId);
     }
+    // We don't handle decline here anymore as it's handled in the MatchDetailCard with the two-step process
 
     setShowConfirmModal(false);
     setPendingAction(null);
@@ -137,6 +234,7 @@ export default function MatchesPage() {
               notifications={notifications}
               onAcceptMatch={handleAcceptMatch}
               onDeclineMatch={handleDeclineMatch}
+              onUndoDeclineMatch={undoDeclineMatch}
               onViewNotification={handleViewNotification}
               isLoading={loading}
             />
@@ -176,6 +274,15 @@ export default function MatchesPage() {
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Payment Modal */}
+      {showPaymentModal && currentPaymentMatchId && (
+        <MatchPaymentModal
+          matchId={currentPaymentMatchId}
+          onClose={() => setShowPaymentModal(false)}
+          onSuccess={handlePaymentSuccess}
+        />
       )}
     </div>
   );

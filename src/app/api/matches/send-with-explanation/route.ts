@@ -103,15 +103,18 @@ export async function POST(request: Request) {
     const member1Data = member1Doc.data();
     const member2Data = member2Doc.data();
     
-    // Step 1: Generate or retrieve explanation
+    // Step 1: Generate or retrieve explanation points
+    const hasMember1Points = Array.isArray(matchData.member1Points) && matchData.member1Points.length > 0;
+    const hasMember2Points = Array.isArray(matchData.member2Points) && matchData.member2Points.length > 0;
     let explanation = matchData.compatibilityExplanation;
     
-    // If no explanation exists or this is a resend and we want a new explanation
-    if (!explanation || (isResend && regenerateExplanation)) {
+    // If no match points exist or this is a resend and we want a new explanation
+    if (!hasMember1Points || !hasMember2Points || (isResend && regenerateExplanation)) {
       console.log(`Generating explanation for match ${matchId}`);
       
-      // Call the generate-explanation API
-      const explanationResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/matches/generate-explanation`, {
+      // Call the generate-explanation API - use relative path for same-origin API calls
+      // This ensures it works in both local and production environments without relying on NEXT_PUBLIC_API_BASE_URL
+      const explanationResponse = await fetch(`/api/matches/generate-explanation`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

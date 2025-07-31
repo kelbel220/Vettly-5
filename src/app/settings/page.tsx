@@ -5,7 +5,7 @@ import { OrbField } from '../components/gradients/OrbField';
 import Image from 'next/image';
 import { inter, playfair } from '../fonts';
 import { useAuth } from '@/context/AuthContext';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase-init';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Home, UserCircle, Bell, CreditCard, Shield, HelpCircle, LogOut } from 'lucide-react';
@@ -24,8 +24,14 @@ interface UserData {
   lastName: string;
   profilePhotoUrl: string;
   email: string;
-  membershipStatus?: string;
-  membershipType?: string;
+  membership?: {
+    status: string;
+    tier: string;
+    startDate?: any;
+    expiryDate?: any;
+    matchesRemaining?: number;
+    lastPaymentDate?: any;
+  };
   billingCycle?: string;
   nextBillingDate?: string;
   notificationPreferences?: {
@@ -81,13 +87,25 @@ export default function Settings() {
               }
             ];
             
+            // Calculate next billing date if membership exists
+            let nextBillingDate = '2025-06-20';
+            if (data.membership?.startDate) {
+              const startDate = new Date(data.membership.startDate.seconds * 1000);
+              const nextMonth = new Date(startDate);
+              nextMonth.setMonth(nextMonth.getMonth() + 1);
+              nextBillingDate = nextMonth.toISOString().split('T')[0];
+            }
+            
             setUserData({
               ...data,
-              // Default values if not set
-              membershipStatus: data.membershipStatus || 'active',
-              membershipType: data.membershipType || 'premium',
+              // Ensure membership data exists
+              membership: data.membership || {
+                status: 'inactive',
+                tier: 'none',
+                matchesRemaining: 0
+              },
               billingCycle: data.billingCycle || 'monthly',
-              nextBillingDate: data.nextBillingDate || '2025-06-20',
+              nextBillingDate: data.nextBillingDate || nextBillingDate,
               notificationPreferences: data.notificationPreferences || {
                 email: true,
                 push: true,
@@ -347,7 +365,11 @@ export default function Settings() {
                         // Update plan in Firebase
                         const userRef = doc(db, 'users', currentUser.uid);
                         await updateDoc(userRef, {
-                          membershipType: selectedPlan === 'standard' ? 'standard' : 'premium'
+                          'membership.tier': selectedPlan === 'standard' ? 'one_match' : 'two_matches',
+                          'membership.status': 'active',
+                          'membership.matchesRemaining': selectedPlan === 'standard' ? 1 : 2,
+                          'membership.startDate': serverTimestamp(),
+                          'membership.lastPaymentDate': serverTimestamp()
                         });
                         
                         // Update local state
@@ -355,7 +377,14 @@ export default function Settings() {
                           if (prevData) {
                             return {
                               ...prevData,
-                              membershipType: selectedPlan === 'standard' ? 'standard' : 'premium'
+                              membership: {
+                                ...prevData.membership,
+                                tier: selectedPlan === 'standard' ? 'one_match' : 'two_matches',
+                                status: 'active',
+                                matchesRemaining: selectedPlan === 'standard' ? 1 : 2,
+                                startDate: new Date(),
+                                lastPaymentDate: new Date()
+                              }
                             };
                           }
                           return prevData;
@@ -419,21 +448,30 @@ export default function Settings() {
                 <button 
                   onClick={async () => {
                     // Handle pause membership logic here
-                    if (currentUser) {
+                    if (pauseDuration && currentUser) {
                       try {
-                        // Calculate new next billing date based on pause duration
+                        // Calculate new billing date
                         const currentDate = new Date();
-                        const pauseMonths = parseInt(pauseDuration);
-                        const newBillingDate = new Date(currentDate);
-                        newBillingDate.setMonth(currentDate.getMonth() + pauseMonths);
+                        const newDate = new Date(currentDate);
                         
-                        // Format the new date as YYYY-MM-DD for storage
-                        const formattedNewDate = newBillingDate.toISOString().split('T')[0];
+                        // Add pause duration to the current date
+                        if (pauseDuration === '1week') {
+                          newDate.setDate(currentDate.getDate() + 7);
+                        } else if (pauseDuration === '2weeks') {
+                          newDate.setDate(currentDate.getDate() + 14);
+                        } else if (pauseDuration === '1month') {
+                          newDate.setMonth(currentDate.getMonth() + 1);
+                        } else if (pauseDuration === '3months') {
+                          newDate.setMonth(currentDate.getMonth() + 3);
+                        }
+                        
+                        // Format date for display
+                        const formattedNewDate = newDate.toISOString().split('T')[0];
                         
                         // Update user data in Firebase
                         const userRef = doc(db, 'users', currentUser.uid);
                         await updateDoc(userRef, {
-                          membershipStatus: 'paused',
+                          'membership.status': 'paused',
                           nextBillingDate: formattedNewDate
                         });
                         
@@ -442,7 +480,10 @@ export default function Settings() {
                           if (prevData) {
                             return {
                               ...prevData,
-                              membershipStatus: 'paused',
+                              membership: {
+                                ...prevData.membership,
+                                status: 'paused'
+                              },
                               nextBillingDate: formattedNewDate
                             };
                           }
@@ -490,9 +531,35 @@ export default function Settings() {
                   Keep Membership
                 </button>
                 <button 
-                  onClick={() => {
+                  onClick={async () => {
                     // Handle cancel membership logic here
-                    setShowCancelConfirm(false);
+                    if (currentUser) {
+                      try {
+                        // Update user data in Firebase
+                        const userRef = doc(db, 'users', currentUser.uid);
+                        await updateDoc(userRef, {
+                          'membership.status': 'inactive'
+                        });
+                        
+                        // Update local state
+                        setUserData(prevData => {
+                          if (prevData) {
+                            return {
+                              ...prevData,
+                              membership: {
+                                ...prevData.membership,
+                                status: 'inactive'
+                              }
+                            };
+                          }
+                          return prevData;
+                        });
+                        
+                        setShowCancelConfirm(false);
+                      } catch (error) {
+                        console.error('Error cancelling membership:', error);
+                      }
+                    }
                   }}
                   className={`${inter.className} px-4 py-2 bg-red-500/80 text-white rounded-lg hover:bg-red-500 transition-colors`}
                 >
@@ -835,98 +902,111 @@ export default function Settings() {
                     <div className="space-y-6">
                       {/* Profile Information */}
                       <div className="p-4 bg-white/5 rounded-xl">
-                        <h4 className="text-white text-lg mb-4">Profile Information</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div>
-                            <label className={`${inter.className} block text-white/70 text-sm mb-1`}>First Name</label>
-                            <input 
-                              type="text" 
-                              value={userData?.firstName || ''}
-                              readOnly
-                              className={`${inter.className} w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white`}
-                            />
+                        <h4 className={`${playfair.className} text-white text-lg mb-4`}>Profile Information</h4>
+                        
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className={`${inter.className} text-white/70 text-sm`}>Name</p>
+                              <p className={`${inter.className} text-white font-medium`}>{userData?.firstName} {userData?.lastName}</p>
+                            </div>
+                            <button className="text-[#3B00CC] hover:text-[#3B00CC]/80">
+                              Edit
+                            </button>
                           </div>
-                          <div>
-                            <label className={`${inter.className} block text-white/70 text-sm mb-1`}>Last Name</label>
-                            <input 
-                              type="text" 
-                              value={userData?.lastName || ''}
-                              readOnly
-                              className={`${inter.className} w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white`}
-                            />
+                          
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className={`${inter.className} text-white/70 text-sm`}>Email</p>
+                              <p className={`${inter.className} text-white font-medium`}>{userData?.email}</p>
+                            </div>
+                            <button className="text-[#3B00CC] hover:text-[#3B00CC]/80">
+                              Edit
+                            </button>
                           </div>
-                          <div>
-                            <label className={`${inter.className} block text-white/70 text-sm mb-1`}>Email</label>
-                            <input 
-                              type="email" 
-                              value={userData?.email || ''}
-                              readOnly
-                              className={`${inter.className} w-full bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white`}
-                            />
+                          
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className={`${inter.className} text-white/70 text-sm`}>Password</p>
+                              <p className={`${inter.className} text-white font-medium`}>••••••••</p>
+                            </div>
+                            <button 
+                              onClick={() => setShowResetPasswordModal(true)}
+                              className="text-[#3B00CC] hover:text-[#3B00CC]/80"
+                            >
+                              Change
+                            </button>
                           </div>
-                        </div>
-                        <div className="mt-4 flex justify-end">
-                          <button 
-                            onClick={() => router.push('/profile')}
-                            className={`${inter.className} px-4 py-2 bg-[#3B00CC] text-white rounded-lg hover:bg-[#3B00CC]/90 transition-colors`}
-                          >
-                            Edit Profile
-                          </button>
                         </div>
                       </div>
                       
-                      {/* Membership Information */}
+                      {/* Membership */}
                       <div className="p-4 bg-white/5 rounded-xl">
                         <h4 className={`${playfair.className} text-white text-lg mb-4`}>Membership</h4>
-                        <div className="space-y-2">
-                          <div className="flex justify-between">
-                            <span className={`${inter.className} text-white/70`}>Current Plan</span>
-                            <span className={`${inter.className} text-white font-medium`}>{userData?.membershipType === 'premium' ? 'Priority' : 'Standard'}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className={`${inter.className} text-white/70`}>Billing Cycle</span>
-                            <span className={`${inter.className} text-white font-medium`}>{userData?.billingCycle === 'monthly' ? 'Monthly' : 'Annual'}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className={`${inter.className} text-white/70`}>Next Billing Date</span>
-                            <span className={`${inter.className} text-white font-medium`}>
-                              {userData?.nextBillingDate ? new Date(userData.nextBillingDate).toLocaleDateString('en-AU', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric'
-                              }).replace(/\//g, '.') : ''}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className={`${inter.className} text-white/70`}>Status</span>
-                            <span className={`${inter.className} text-white font-medium capitalize`}>{userData?.membershipStatus}</span>
-                          </div>
-                        </div>
                         
-                        {/* Membership Actions */}
-                        <div className="mt-6 pt-4 border-t border-white/10">
-                          <h5 className={`${playfair.className} text-white text-base mb-3`}>Membership Actions</h5>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className={`${inter.className} text-white/70 text-sm`}>Current Plan</p>
+                              <p className={`${inter.className} text-white font-medium`}>
+                                {userData?.membership?.tier === 'two_matches' ? 'Priority Matchmaker' : 
+                                 userData?.membership?.tier === 'one_match' ? 'Standard Matchmaker' : 'Free'}
+                              </p>
+                              {userData?.membership?.matchesRemaining !== undefined && (
+                                <p className={`${inter.className} text-white/50 text-xs mt-1`}>
+                                  {userData.membership.matchesRemaining} match{userData.membership.matchesRemaining !== 1 ? 'es' : ''} remaining this month
+                                </p>
+                              )}
+                            </div>
                             <button 
                               onClick={() => setShowChangePlan(true)}
-                              className={`${inter.className} py-2 px-4 bg-[#3B00CC]/80 text-white rounded-lg hover:bg-[#3B00CC] transition-colors`}
+                              className="text-[#3B00CC] hover:text-[#3B00CC]/80"
                             >
-                              Change Plan
+                              Change
                             </button>
-                            <button 
-                              onClick={() => setShowPauseConfirm(true)}
-                              className={`${inter.className} py-2 px-4 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors`}
-                            >
-                              Pause Membership
-                            </button>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className={`${inter.className} text-white/70 text-sm`}>Status</p>
+                              <p className={`${inter.className} text-white font-medium capitalize`}>
+                                {userData?.membership?.status || 'Inactive'}
+                              </p>
+                            </div>
+                            {userData?.membership?.status === 'active' && (
+                              <button 
+                                onClick={() => setShowPauseConfirm(true)}
+                                className="text-[#3B00CC] hover:text-[#3B00CC]/80"
+                              >
+                                Pause
+                              </button>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className={`${inter.className} text-white/70 text-sm`}>Billing Cycle</p>
+                              <p className={`${inter.className} text-white font-medium`}>
+                                {userData?.billingCycle === 'monthly' ? 'Monthly' : 'Annual'}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className={`${inter.className} text-white/70 text-sm`}>Next Billing Date</p>
+                              <p className={`${inter.className} text-white font-medium`}>{userData?.nextBillingDate}</p>
+                            </div>
+                          </div>
+                          
+                          {userData?.membership?.status === 'active' && (
                             <button 
                               onClick={() => setShowCancelConfirm(true)}
-                              className={`${inter.className} py-2 px-4 bg-white/10 text-white/90 rounded-lg hover:bg-red-500/20 hover:text-white transition-colors`}
+                              className="w-full py-2 bg-white/10 text-white rounded-lg hover:bg-red-500/20 transition-colors mt-4"
                             >
                               Cancel Membership
                             </button>
-                          </div>
-                        </div>
+                          )}
                       </div>
                       
                       {/* Payment Information */}

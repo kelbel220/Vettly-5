@@ -4,6 +4,9 @@ const admin = require('firebase-admin');
 
 admin.initializeApp();
 
+// Import calendar functions
+const { createVirtualMeeting } = require('./src/calendar/createVirtualMeeting');
+
 // Import scheduled jobs
 const scheduledJobs = require('./src/scheduledJobs');
 
@@ -276,3 +279,6 @@ function calculateDimensionScore(answers1, answers2, questions) {
   // Return score between 0 and 1, defaulting to 0.5 if no questions were answered
   return totalQuestions > 0 ? matchingAnswers / totalQuestions : 0.5;
 }
+
+// Export calendar functions
+exports.createVirtualMeeting = createVirtualMeeting;

@@ -2,20 +2,27 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useAuth, AuthContextType } from '@/context/AuthContext';
 import { OrbField } from '@/app/components/gradients/OrbField';
 import { HomeOrbField } from '@/app/components/gradients/HomeOrbField';
 import { db } from '@/lib/firebase-init';
 import { doc, getDoc } from 'firebase/firestore';
 import { ProposedMatch, MatchApprovalStatus } from '@/lib/types/matchmaking';
 import { useProposedMatches } from '@/hooks/useProposedMatches';
+import { useMatchPoints } from '@/hooks/useMatchPoints';
 import Image from 'next/image';
 import { format, formatDistanceToNow } from 'date-fns';
 import { inter, playfair } from '@/app/fonts';
+import { motion, AnimatePresence } from 'framer-motion';
 import { MdSmokingRooms } from 'react-icons/md';
 import { FaWineGlassAlt, FaChild, FaBabyCarriage } from 'react-icons/fa';
 import MatchExplanation from '@/components/matches/MatchExplanation';
+import { MobileNavigation } from '@/components/navigation/MobileNavigation';
 
 export default function MatchDetailPage() {
+  // Set active tab for navigation
+  const activeTab = 'matches';
+  const auth = useAuth();
   const params = useParams();
   const router = useRouter();
   const matchId = params?.id as string;
@@ -26,16 +33,35 @@ export default function MatchDetailPage() {
     return null;
   }
   
-  const { matches, loading, acceptMatch, declineMatch } = useProposedMatches();
+  const { matches, loading, acceptMatch, declineMatch, undoDeclineMatch } = useProposedMatches();
   const [match, setMatch] = useState<ProposedMatch | null>(null);
   const [imageError, setImageError] = useState(false);
-  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  
+  // Use the new hook for match explanation points
+  const { 
+    pointsData, 
+    loading: pointsLoading, 
+    error: pointsError, 
+    regenerateMatchPoints, 
+    isRegenerating,
+    getCurrentUserPoints
+  } = useMatchPoints(matchId);
   
   useEffect(() => {
     if (!loading && matches.length > 0) {
       const foundMatch = matches.find(m => m.id === matchId);
       if (foundMatch) {
         setMatch(foundMatch);
+        
+        // Extract photo URL from various possible locations in the data structure
+        const extractedPhotoUrl = foundMatch.matchedUserData.profilePhotoUrl || 
+                               (foundMatch.matchedUserData.questionnaireAnswers?.personal_profilePhoto) ||
+                               null;
+        
+        console.log('Extracted photo URL:', extractedPhotoUrl);
+        setPhotoUrl(extractedPhotoUrl);
+        setImageError(false); // Reset image error state when match changes
       } else {
         // Match not found, redirect back to matches page
         router.push('/matches');
@@ -56,111 +82,35 @@ export default function MatchDetailPage() {
     }
   };
   
-  // Handle decline match
-  const handleDeclineMatch = async () => {
+  // State for decline modals
+  const [showDeclineNotification, setShowDeclineNotification] = useState(false);
+  const [showReasonSelection, setShowReasonSelection] = useState(false);
+  const [selectedReason, setSelectedReason] = useState<string>('');
+  const [customReason, setCustomReason] = useState('');
+
+  // Standard decline reasons
+  const standardReasons = [
+    "Not physically attracted",
+    "Different life goals",
+    "Incompatible values",
+    "Location is too far"
+  ];
+
+  // Handle decline match - show notification first
+  const handleDeclineMatch = () => {
+    setShowDeclineNotification(true);
+  };
+
+  // Handle final decline with reason
+  const handleFinalDecline = (reason: string) => {
     if (match) {
-      await declineMatch(match.id);
-      // Stay on the page to show the updated status
+      declineMatch(match.id, reason);
+      setShowReasonSelection(false);
     }
   };
   
-  // Function to regenerate explanation for current match
-  const regenerateExplanation = async () => {
-    if (!match) return;
-    
-    setIsRegenerating(true);
-    console.log('Regenerating explanation for match:', match.id);
-    
-    try {
-      // Get the matched user data from Firebase to ensure we have the correct data
-      const matchRef = doc(db, 'matches', match.id);
-      const matchDoc = await getDoc(matchRef);
-      
-      if (!matchDoc.exists()) {
-        throw new Error('Match not found in Firebase');
-      }
-      
-      const matchData = matchDoc.data();
-      console.log('Match data from Firebase:', matchData);
-      
-      // Determine the member IDs to use
-      let member1Id = matchData.member1Id || match.member1Id;
-      let member2Id = matchData.member2Id || match.member2Id;
-      
-      // If we still don't have member IDs, try to construct them from other fields
-      if (!member1Id || !member2Id) {
-        console.log('Member IDs not found in match data, attempting to construct them');
-        
-        // In Vettly, member1 is male and member2 is female
-        // Try to determine the IDs based on the current user and matched user
-        if (match.currentUserId && match.matchedUserId) {
-          // If we have both IDs, use them (order doesn't matter for the API)
-          member1Id = match.currentUserId;
-          member2Id = match.matchedUserId;
-          console.log('Using currentUserId and matchedUserId as member IDs');
-        }
-      }
-      
-      // Final check to ensure we have both member IDs
-      if (!member1Id || !member2Id) {
-        throw new Error('Could not determine member IDs for this match');
-      }
-      
-      // In Vettly, member1 should be male and member2 should be female
-      // Let's make sure we're sending the IDs in the correct order
-      // This ensures the API generates the correct gender-specific explanations
-      const payload = {
-        matchId: match.id,
-        member1Id, // Male ID
-        member2Id  // Female ID
-      };
-      
-      console.log('Using member IDs:', { member1Id, member2Id });
-      
-      console.log('Request payload:', payload);
-      
-      // Make the API request
-      const response = await fetch('/api/matches/generate-explanation', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
-      
-      // Handle non-OK responses
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API error response:', {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        });
-        throw new Error(`API Error ${response.status}: ${errorText}`);
-      }
-      
-      // Parse the response
-      const data = await response.json();
-      console.log('Explanation regenerated successfully:', data);
-      
-      // Update the match with new explanation data
-      setMatch({
-        ...match,
-        member1Explanation: data.member1Explanation,
-        member2Explanation: data.member2Explanation,
-        member1Points: data.member1Points,
-        member2Points: data.member2Points
-      });
-      
-      alert('Match explanation regenerated successfully!');
-    } catch (error) {
-      console.error('Failed to regenerate explanation:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      alert(`Failed to regenerate explanation: ${errorMessage}`);
-    } finally {
-      setIsRegenerating(false);
-    }
-  };
+  // The regenerate explanation functionality has been removed
+  // Match explanations are now generated automatically when matches are sent from the CRM
   
   if (loading || !match) {
     return (
@@ -208,7 +158,15 @@ export default function MatchDetailPage() {
     matchId: match?.id,
     matchedUserData,
     suburb,
-    state
+    state,
+    profilePhotoUrl: matchedUserData.profilePhotoUrl,
+    questionnaireAnswers: matchedUserData.questionnaireAnswers,
+    currentPhotoUrl: photoUrl,
+    currentUserId: auth.currentUser?.uid,
+    member1Id: match.member1Id,
+    member2Id: match.member2Id,
+    member1Points: match.member1Points ? 'exists' : 'missing',
+    member2Points: match.member2Points ? 'exists' : 'missing'
   });
   
   // Format profession
@@ -327,41 +285,62 @@ export default function MatchDetailPage() {
       </div>
       
       {/* Content - scrollable */}
-      <div className="relative z-10 container mx-auto px-4 py-4">
-        {/* Back button */}
-        <button 
-          onClick={handleBack}
-          className="mb-4 flex items-center text-white hover:text-[#73FFF6] transition-colors"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          <span>Back to Matches</span>
-        </button>
+      <div className="relative z-10 container mx-auto px-4 py-8 max-w-[1400px] w-full">
+        {/* Header with logo and back button */}
+        <div className="flex justify-between items-center mb-16 pt-4 relative">
+          {/* Back button */}
+          <button 
+            onClick={handleBack}
+            className="flex items-center text-white hover:text-[#73FFF6] transition-colors"
+          >
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span>Back to Matches</span>
+          </button>
+          
+          {/* Vettly Logo in center with proper spacing */}
+          <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 py-2">
+            <Image 
+              src="/vettly-logo.png" 
+              alt="Vettly Logo" 
+              width={160} 
+              height={50} 
+              className="object-contain" 
+            />
+          </div>
+          
+          {/* Empty div to balance the layout */}
+          <div className="w-[100px]"></div>
+        </div>
         
-        {/* Card container */}
-        <div className="max-w-4xl mx-auto rounded-2xl bg-white/15 backdrop-blur-xl shadow-[0_8px_32px_rgb(31,38,135,0.2)] p-6 md:p-8 mb-6">
-          <div className="flex flex-col md:flex-row gap-8">
-            {/* Left column - Profile photo and basic info */}
-            <div className="w-full md:w-1/3 flex flex-col gap-6">
-              {/* Profile Photo with bright neon cyan glow */}
+        {/* Card container - wider for desktop with refined styling */}
+        <div className="w-full mx-auto rounded-3xl bg-white/10 backdrop-blur-xl shadow-[0_8px_32px_rgb(31,38,135,0.2)] p-8 md:p-10 mb-6 border border-white/10">
+          <div className="flex flex-col md:flex-row gap-12 items-start">
+            {/* Left column - Profile photo and basic info - equal width on desktop */}
+            <div className="w-full md:w-1/2 flex flex-col gap-6">
+              {/* Profile Photo with refined elegant glow */}
               <div className="relative w-full aspect-square">
-                {/* Diffused glow layers */}
-                <div className="absolute -inset-1 rounded-xl bg-[#73FFF6] blur-[8px] opacity-80 z-5"></div>
-                <div className="absolute -inset-3 rounded-2xl bg-[#73FFF6] blur-[25px] opacity-70 animate-pulse z-0"></div>
-                <div className="absolute -inset-5 rounded-3xl bg-[#73FFF6] blur-[35px] opacity-40 z-0"></div>
-                {/* Subtle border */}
-                <div className="absolute inset-0 rounded-xl border border-[#73FFF6] shadow-[0_0_8px_#73FFF6] z-10"></div>
+                {/* Diffused glow layers - more subtle and sophisticated */}
+                <div className="absolute -inset-1 rounded-2xl bg-[#73FFF6] blur-[10px] opacity-70 z-5"></div>
+                <div className="absolute -inset-3 rounded-3xl bg-[#73FFF6] blur-[20px] opacity-50 animate-pulse z-0"></div>
+                <div className="absolute -inset-5 rounded-3xl bg-[#73FFF6] blur-[30px] opacity-30 z-0"></div>
+                {/* Refined border */}
+                <div className="absolute inset-0 rounded-2xl border border-[#73FFF6]/80 shadow-[0_0_12px_#73FFF6] z-10"></div>
                 {/* Content container */}
-                <div className="absolute inset-[1px] rounded-xl overflow-hidden z-20">
-                  {!imageError && matchedUserData.profilePhotoUrl ? (
+                <div className="absolute inset-[1px] rounded-2xl overflow-hidden z-20">
+                  {/* Display photo if available */}
+                  {!imageError && photoUrl ? (
                     <Image
-                      src={matchedUserData.profilePhotoUrl}
+                      src={photoUrl}
                       alt={`${matchedUserData.firstName}'s profile`}
                       fill
                       sizes="(max-width: 768px) 100vw, 33vw"
                       className="object-cover"
-                      onError={() => setImageError(true)}
+                      onError={() => {
+                        console.log('Image error occurred with URL:', photoUrl);
+                        setImageError(true);
+                      }}
                       priority
                     />
                   ) : (
@@ -375,22 +354,22 @@ export default function MatchDetailPage() {
                 </div>
               </div>
               
-              {/* Name and Age Heading - clean and elegant */}
-              <div className="mb-4">
-                <h2 className={`${playfair.className} text-4xl md:text-5xl font-normal text-white mb-1`}>
-                  {matchedUserData.firstName} {matchedUserData.lastName}, {age}
+              {/* Name and Age Heading - more refined and elegant */}
+              <div className="mb-6">
+                <h2 className={`${playfair.className} text-4xl md:text-5xl font-normal text-white mb-2 tracking-wide`}>
+                  {matchedUserData.firstName} {matchedUserData.lastName}, <span className="text-white">{age}</span>
                 </h2>
                 {/* Location below name */}
-                <p className={`${playfair.className} text-white/75 text-xl mb-3`}>
+                <p className={`${playfair.className} text-white/80 text-xl mb-3 tracking-wide`}>
                   {displayLocation !== 'Location not specified' ? displayLocation : ''}
                   {displayLocation !== 'Location not specified' && state ? ', ' : ''}
                   {state}
                 </p>
               </div>
               
-              {/* Basic Info Card - Single Glass Box with soft glow */}
-              <div className="bg-white/8 backdrop-blur-md rounded-xl p-5 shadow-inner shadow-white/5 border border-[#73FFF6]/20 shadow-[0_0_15px_rgba(115,255,246,0.15)]">
-                <h3 className={`${inter.className} text-xl font-semibold text-[#73FFF6] mb-3 border-b border-[#73FFF6]/30 pb-1`}>
+              {/* Basic Info Card - Refined Glass Box with elegant glow */}
+              <div className="bg-white/8 backdrop-blur-md rounded-2xl p-6 shadow-inner shadow-white/5 border border-[#73FFF6]/30 shadow-[0_0_20px_rgba(115,255,246,0.2)]">
+                <h3 className={`${inter.className} text-xl font-semibold text-[#73FFF6] mb-4 border-b border-[#73FFF6]/40 pb-2`}>
                   About
                 </h3>
                 <div className="grid grid-cols-2 gap-2">
@@ -452,9 +431,9 @@ export default function MatchDetailPage() {
                 </div>
               </div>
               
-              {/* Lifestyle */}
-              <div className="bg-white/8 backdrop-blur-md rounded-xl p-5 mt-4 shadow-inner shadow-white/5 border border-[#73FFF6]/20 shadow-[0_0_15px_rgba(115,255,246,0.15)]">
-                <h3 className={`${inter.className} text-xl font-semibold text-[#73FFF6] mb-3 border-b border-[#73FFF6]/30 pb-1`}>
+              {/* Lifestyle - with refined styling */}
+              <div className="bg-white/8 backdrop-blur-md rounded-2xl p-6 mt-6 shadow-inner shadow-white/5 border border-[#73FFF6]/30 shadow-[0_0_20px_rgba(115,255,246,0.2)]">
+                <h3 className={`${inter.className} text-xl font-semibold text-[#73FFF6] mb-4 border-b border-[#73FFF6]/40 pb-2`}>
                   Lifestyle
                 </h3>
                 <div className="grid grid-cols-2 gap-2">
@@ -532,14 +511,14 @@ export default function MatchDetailPage() {
                 
                 {/* Hobbies */}
                 {matchedUserData.questionnaireAnswers?.lifestyle_hobbiesTypes && (
-                  <div className="mt-6">
-                    <p className="text-white/70 text-sm mb-2">Hobbies & Interests</p>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="mt-8">
+                    <p className="text-white/80 text-sm mb-3 uppercase tracking-wider font-medium">Hobbies & Interests</p>
+                    <div className="flex flex-wrap gap-3">
                       {Array.isArray(matchedUserData.questionnaireAnswers.lifestyle_hobbiesTypes) ? 
                         matchedUserData.questionnaireAnswers.lifestyle_hobbiesTypes.map((hobby: string, index: number) => (
                           <span 
                             key={index} 
-                            className="bg-[#34D8F1]/30 backdrop-blur-md border border-[#34D8F1]/50 rounded-full px-3 py-1 text-white text-sm font-medium shadow-sm"
+                            className="bg-[#34D8F1]/20 backdrop-blur-md border border-[#34D8F1]/40 rounded-full px-4 py-1.5 text-white text-sm font-medium shadow-sm hover:bg-[#34D8F1]/30 transition-colors"
                           >
                             {hobby}
                           </span>
@@ -552,11 +531,30 @@ export default function MatchDetailPage() {
               </div>
             </div>
             
-            {/* Right column - Match details */}
-            <div className="flex-1">
+            {/* Right column - Match details - equal width on desktop */}
+            <div className="w-full md:w-1/2">
               {/* Status Pills */}
               <div className="mb-0">
                 <div className="flex flex-wrap gap-3">
+                  {/* Match Status Pill */}
+                  {status && (
+                    <div className={`backdrop-blur-md border rounded-full px-3 py-1 text-white text-sm font-medium shadow-sm ${status === MatchApprovalStatus.APPROVED ? 'bg-green-500/30 border-green-500/50' : status === MatchApprovalStatus.DECLINED ? 'bg-red-500/30 border-red-500/50' : 'bg-[#34D8F1]/30 border-[#34D8F1]/50'}`}>
+                      {status === MatchApprovalStatus.APPROVED ? 'Match Approved' : status === MatchApprovalStatus.DECLINED ? 'Match Declined' : 'Pending'}
+                    </div>
+                  )}
+                  
+                  {/* Undo Decline Button - Always visible */}
+                  <button
+                    onClick={() => {
+                      if (match) {
+                        undoDeclineMatch(match.id);
+                      }
+                    }}
+                    className="bg-white/10 backdrop-blur-md border border-white/30 rounded-full px-3 py-1 text-white text-sm font-medium shadow-sm hover:bg-white/20 transition-colors"
+                  >
+                    Undo Decline (Testing)
+                  </button>
+                  
                   {hasChildren !== 'Not specified' && (
                     <div className="bg-[#34D8F1]/30 backdrop-blur-md border border-[#34D8F1]/50 rounded-full px-3 py-1 text-white text-sm font-medium shadow-sm">
                       {hasChildren}
@@ -567,50 +565,100 @@ export default function MatchDetailPage() {
               </div>
               
               {/* Why you're a great match - with border glow */}
-              <div className="relative mb-4 mt-4">
+              <div className="relative mb-4 mt-0">
                 {/* Glass box matching About section with brighter and stronger glow */}
-                <div className="relative bg-white/8 backdrop-blur-md rounded-xl p-5 shadow-inner shadow-white/5 border-[1.5px] border-[#73FFF6]/90" style={{ boxShadow: '0 0 15px 5px rgba(115,255,246,0.8), 0 0 30px 15px rgba(115,255,246,0.5), 0 0 60px 25px rgba(115,255,246,0.3), inset 0 0 5px rgba(255,255,255,0.05)' }}>
-                  <h3 className={`${playfair.className} text-2xl font-medium text-[#73FFF6] mb-4`}>
-                    Why you're a great match
-                  </h3>
-                  
-                  {/* Display gender-specific explanation */}
-                  {/* In Vettly, member1 is male and member2 is female */}
-                  {/* Always show member2Points (female explanation) for this user */}
-                  {match && match.member2Points ? (
-                    <MatchExplanation 
-                      matchPoints={match.member2Points} 
-                    />
-                  ) : match && match.member2Explanation ? (
-                    <MatchExplanation 
-                      matchPoints={parseMatchPoints(match.member2Explanation)} 
-                    />
-                  ) : (
-                    <div className="text-white/70 italic text-sm">
-                      Match explanation is being generated...
+                <div className="relative bg-white/10 backdrop-blur-md rounded-2xl p-7 shadow-inner shadow-white/10 border-[1.5px] border-[#73FFF6]/80" style={{ boxShadow: '0 0 15px 5px rgba(115,255,246,0.7), 0 0 30px 15px rgba(115,255,246,0.4), 0 0 60px 25px rgba(115,255,246,0.2), inset 0 0 8px rgba(255,255,255,0.1)' }}>
+                  <div className="mb-5">
+                    <h3 className={`${playfair.className} text-3xl font-medium text-[#73FFF6] tracking-wide border-b border-[#73FFF6]/40 pb-2`}>
+                      Why you're a great match
+                    </h3>
+                  </div>
+                                    {/* Display gender-specific explanation using the new useMatchPoints hook */}
+                  {(() => {
+                    // If loading, show loading state
+                    if (pointsLoading) {
+                      return (
+                        <div className="text-white/70 italic text-sm">
+                          Loading match explanation...
+                        </div>
+                      );
+                    }
+                    
+                    // If there's an error, show error message
+                    if (pointsError) {
+                      return (
+                        <div className="text-red-400 italic text-sm">
+                          Unable to load match explanation. Please try again later.
+                        </div>
+                      );
+                    }
+                    
+                    // Get points for the current user
+                    const userPoints = getCurrentUserPoints();
+                    
+                    // If we have points, show them
+                    if (userPoints && userPoints.length > 0) {
+                      return <MatchExplanation matchPoints={userPoints} />;
+                    }
+                    
+                    // No points available - this happens when match was sent without generating points
+                    return (
+                      <div className="text-white/70 text-sm">
+                        <p className="mb-2">Your match explanation is not available at this time.</p>
+                        <p>This match may have been created before explanations were added to the system.</p>
+                      </div>
+                    );
+                  })()}
+                </div>
+                
+                {/* Photo Grid - Three photos in horizontal layout */}
+                <div className="mt-8">
+                  <h4 className="text-white/80 text-sm mb-4 uppercase tracking-wider font-medium">Photo Gallery</h4>
+                  <div className="grid grid-cols-3 gap-3">
+                    {/* Photo 1 */}
+                    <div className="relative aspect-square rounded-lg overflow-hidden bg-gradient-to-br from-[#34D8F1]/30 to-[#73FFF6]/30 border border-[#34D8F1]/20">
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-white/70 text-xs">Photo 1</span>
+                      </div>
                     </div>
-                  )}
-
+                    
+                    {/* Photo 2 */}
+                    <div className="relative aspect-square rounded-lg overflow-hidden bg-gradient-to-br from-[#34D8F1]/30 to-[#73FFF6]/30 border border-[#34D8F1]/20">
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-white/70 text-xs">Photo 2</span>
+                      </div>
+                    </div>
+                    
+                    {/* Photo 3 */}
+                    <div className="relative aspect-square rounded-lg overflow-hidden bg-gradient-to-br from-[#34D8F1]/30 to-[#73FFF6]/30 border border-[#34D8F1]/20">
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-white/70 text-xs">Photo 3</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
               
-              {/* Footer with Date and Actions */}
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mt-6 mb-2">
-                <div className="text-white/50 text-sm mb-4 md:mb-0">
+              {/* Date info */}
+              <div className="mt-6 mb-4">
+                <div className="text-white/50 text-sm">
                   <span>Proposed {timeAgo} • {formattedDate}</span>
                 </div>
-                
+              </div>
+              
+              {/* Actions */}
+              <div className="flex justify-center md:justify-start mb-2">
                 {status === MatchApprovalStatus.PENDING && (
                   <div className="flex gap-4 w-full md:w-auto">
                     <button
                       onClick={handleDeclineMatch}
-                      className="flex-1 md:flex-none px-6 py-3 border border-white/20 rounded-lg text-white hover:bg-white/10 transition-colors"
+                      className="flex-1 md:w-[160px] px-6 py-3 border border-white/20 rounded-lg text-white hover:bg-white/10 transition-colors"
                     >
                       Decline
                     </button>
                     <button
                       onClick={handleAcceptMatch}
-                      className="flex-1 md:flex-none px-8 py-3 rounded-lg text-white bg-[#3B00CC] hover:opacity-90 transition-opacity"
+                      className="flex-1 md:w-[160px] px-8 py-3 rounded-lg text-white bg-[#3B00CC] hover:opacity-90 transition-opacity"
                     >
                       Accept Match
                     </button>
@@ -633,6 +681,200 @@ export default function MatchDetailPage() {
           </div>
         </div>
       </div>
+      
+      {/* Desktop Navigation - Right Sidebar */}
+      <aside className="hidden lg:flex flex-col w-24 bg-[#34D8F1]/95 backdrop-blur-xl border-l border-white/10 fixed right-0 top-0 h-full">
+        <div className="flex flex-col items-center py-6 h-full">
+          <nav className="flex flex-col items-center space-y-6 flex-1">
+            {[
+              { id: 'dashboard', icon: (
+                <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+              )},
+              { id: 'profile', icon: (
+                <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                </svg>
+              )},
+              { id: 'messages', icon: (
+                <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                </svg>
+              )},
+              { id: 'matches', icon: (
+                <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+                </svg>
+              )},
+              { id: 'settings', icon: (
+                <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+                </svg>
+              )}
+            ].map((item) => (
+              <button
+                key={item.id}
+                className={`flex flex-col items-center p-2 rounded-lg transition-all ${
+                  activeTab === item.id
+                    ? 'bg-white/25 text-white'
+                    : 'text-white hover:text-white hover:bg-white/20'
+                }`}
+                onClick={() => {
+                  router.push(`/${item.id === 'dashboard' ? '' : item.id}`);
+                }}
+              >
+                {item.icon}
+                <span className="text-xs mt-1 capitalize">{item.id}</span>
+              </button>
+            ))}
+          </nav>
+          
+          {/* Logout Button */}
+          <button
+            onClick={() => {
+              const auth = useAuth();
+              auth.logout().then(() => {
+                router.push('/login');
+              });
+            }}
+            className="mt-auto mb-6 flex flex-col items-center p-2 rounded-lg transition-all text-white hover:text-white hover:bg-white/20"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="#3B00CC" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span className="text-xs mt-1">Logout</span>
+          </button>
+        </div>
+      </aside>
+      
+      {/* Mobile Navigation */}
+      <MobileNavigation activeTab={activeTab} />
+      
+      {/* Decline Confirmation Notification - Step 1 */}
+      <AnimatePresence>
+        {showDeclineNotification && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          >
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 max-w-md w-full border border-white/10 shadow-xl">
+              <h3 className={`${playfair.className} text-2xl font-normal text-white mb-4`}>
+                Are you sure?
+              </h3>
+              <div className="space-y-4 mb-6">
+                <p className={`${inter.className} text-white/90 mb-2`}>
+                  You only have 3 matches proposed. Once declined, this match won't be proposed again.
+                </p>
+                <p className={`${inter.className} text-white/80 text-sm`}>
+                  Unlike standard dating apps, we've carefully assessed many options and strongly believe this is a good match for you based on compatibility factors.
+                </p>
+              </div>
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={() => setShowDeclineNotification(false)}
+                  className="px-4 py-2 border border-white/20 rounded-lg text-white/70 hover:bg-white/10 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeclineNotification(false);
+                    setShowReasonSelection(true);
+                  }}
+                  className="px-6 py-2 rounded-lg text-white bg-red-500/80 hover:bg-red-500/90 transition-colors"
+                >
+                  Decline Anyway
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      
+      {/* Reason Selection - Step 2 */}
+      <AnimatePresence>
+        {showReasonSelection && (
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          >
+            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 max-w-md w-full border border-white/10 shadow-xl">
+              <h3 className={`${playfair.className} text-2xl font-normal text-white mb-4`}>
+                Why are you declining this match?
+              </h3>
+              <div className="space-y-4 mb-6">
+                <p className={`${inter.className} text-white/90 mb-4`}>
+                  Your feedback helps us improve future matches.
+                </p>
+                
+                {/* Standard reasons */}
+                <div className="space-y-3">
+                  {standardReasons.map((reason, index) => (
+                    <div 
+                      key={index}
+                      onClick={() => setSelectedReason(reason)}
+                      className={`p-3 rounded-lg cursor-pointer transition-colors ${selectedReason === reason ? 'bg-white/20 border border-white/30' : 'bg-white/5 hover:bg-white/10 border border-white/10'}`}
+                    >
+                      <p className="text-white">{reason}</p>
+                    </div>
+                  ))}
+                  
+                  {/* Custom reason option */}
+                  <div 
+                    className={`p-3 rounded-lg transition-colors ${selectedReason === 'other' ? 'bg-white/20 border border-white/30' : 'bg-white/5 hover:bg-white/10 border border-white/10'}`}
+                  >
+                    <div 
+                      onClick={() => setSelectedReason('other')}
+                      className="flex items-center cursor-pointer"
+                    >
+                      <p className="text-white">Other reason</p>
+                    </div>
+                    
+                    {selectedReason === 'other' && (
+                      <textarea
+                        value={customReason}
+                        onChange={(e) => setCustomReason(e.target.value)}
+                        placeholder="Please specify..."
+                        className="mt-2 w-full bg-white/10 border border-white/20 rounded-md p-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
+                        rows={3}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-4">
+                <button
+                  onClick={() => {
+                    setShowReasonSelection(false);
+                    setShowDeclineNotification(true);
+                  }}
+                  className="px-4 py-2 border border-white/20 rounded-lg text-white/70 hover:bg-white/10 transition-colors"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={() => {
+                    const finalReason = selectedReason === 'other' ? customReason : selectedReason;
+                    handleFinalDecline(finalReason);
+                  }}
+                  className="px-6 py-2 rounded-lg text-white bg-red-500/80 hover:bg-red-500/90 transition-colors"
+                  disabled={!selectedReason || (selectedReason === 'other' && !customReason.trim())}
+                >
+                  Submit
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -26,6 +26,8 @@ export interface MatchNotification {
   };
   status: 'pending' | 'viewed' | 'accepted' | 'declined';
   createdAt: string;
+  type?: 'match_declined' | 'match_accepted' | 'match_viewed';
+  message?: string;
 }
 
 /**
